@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.1.3
+ * Version:           1.1.4
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,9 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const VERSION    = '1.1.3';
+    const VERSION    = '1.1.4';
     const ENDPOINT   = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-WP-Plugin/1.1.3';
+    const USER_AGENT = 'Limy-WP-Plugin/1.1.4';
 
     /**
      * @var float Microtime when request started.
@@ -615,7 +615,7 @@ final class Limy_AI_Logger {
                                     <summary style="font-size:12px;font-weight:600;color:#334155;outline:none;">
                                         🔍 <?php esc_html_e('Inspect Last Shipped Payload (JSON)', 'limy-ai-logger'); ?>
                                     </summary>
-                                    <pre style="background:#0F172A;color:#00C950;padding:14px;border-radius:8px;font-size:12px;margin-top:10px;overflow-x:auto;font-family:monospace;"><?php echo esc_html(wp_json_encode($last_log['payload'], JSON_PRETTY_PRINT)); ?></pre>
+                                    <pre style="background:#0F172A;color:#00C950;padding:14px;border-radius:8px;font-size:12px;margin-top:10px;overflow-x:auto;font-family:monospace;"><?php echo esc_html(wp_json_encode($last_log['payload'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)); ?></pre>
                                 </details>
                             <?php else: ?>
                                 <p style="font-size:13px;color:#64748B;margin:0;">
