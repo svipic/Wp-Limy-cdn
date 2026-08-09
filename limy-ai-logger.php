@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.2.0
+ * Version:           1.2.1
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,9 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const VERSION    = '1.2.0';
+    const VERSION    = '1.2.1';
     const ENDPOINT   = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-WP-Plugin/1.2.0';
+    const USER_AGENT = 'Limy-WP-Plugin/1.2.1';
 
     /**
      * @var float Microtime when request started.
@@ -50,6 +50,7 @@ final class Limy_AI_Logger {
 
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'register_settings'));
+        add_action('admin_init', array($this, 'maybe_activation_redirect'));
         add_action('admin_notices', array($this, 'show_admin_notices'));
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_action_links'));
         add_action('wp_ajax_limy_test_ping', array($this, 'ajax_test_ping'));
@@ -60,6 +61,26 @@ final class Limy_AI_Logger {
         // Enable automatic updates directly from GitHub Releases (svipic/Wp-Limy-cdn)
         if (is_admin()) {
             new Limy_AI_Logger_GitHub_Updater(__FILE__, 'svipic/Wp-Limy-cdn');
+        }
+    }
+
+    /**
+     * Set activation redirect option on plugin activation.
+     */
+    public static function on_activation() {
+        add_option('limy_do_activation_redirect', true);
+    }
+
+    /**
+     * Redirect to Limy AI Logger settings page upon plugin activation.
+     */
+    public function maybe_activation_redirect() {
+        if (get_option('limy_do_activation_redirect', false)) {
+            delete_option('limy_do_activation_redirect');
+            if (!is_network_admin() && !isset($_GET['activate-multi']) && current_user_can('manage_options')) {
+                wp_safe_redirect(admin_url('options-general.php?page=limy-ai-logger'));
+                exit;
+            }
         }
     }
 
@@ -1415,5 +1436,6 @@ final class Limy_AI_Logger_GitHub_Updater {
 }
 
 // Initialize plugin
+register_activation_hook(__FILE__, array('Limy_AI_Logger', 'on_activation'));
 Limy_AI_Logger::get_instance();
 
