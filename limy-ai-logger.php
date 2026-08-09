@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.0.9
+ * Version:           1.1.0
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -81,7 +81,7 @@ final class Limy_AI_Logger {
     public function register_settings() {
         register_setting('limy_ai_logger_group', 'limy_api_key', array(
             'type'              => 'string',
-            'sanitize_callback' => 'sanitize_text_field',
+            'sanitize_callback' => array($this, 'encrypt_api_key'),
             'default'           => '',
         ));
 
@@ -118,6 +118,76 @@ final class Limy_AI_Logger {
     }
 
     /**
+     * Get encryption key derived from WordPress security salts.
+     */
+    private function get_encryption_key() {
+        $salt = defined('AUTH_KEY') ? AUTH_KEY : 'limy_default_fallback_salt_2026';
+        return hash('sha256', $salt, true);
+    }
+
+    /**
+     * Encrypt API Key before saving to wp_options (AES-256-CBC).
+     */
+    public function encrypt_api_key($value) {
+        $value = sanitize_text_field(trim($value));
+        if (empty($value)) {
+            return '';
+        }
+        if (strpos($value, 'enc:') === 0) {
+            return $value;
+        }
+
+        $key = $this->get_encryption_key();
+        $iv  = openssl_random_pseudo_bytes(16);
+        $ciphertext = openssl_encrypt($value, 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
+
+        if ($ciphertext === false) {
+            return $value;
+        }
+
+        return 'enc:' . base64_encode($iv . $ciphertext);
+    }
+
+    /**
+     * Decrypt API Key when retrieving from wp_options.
+     */
+    public function decrypt_api_key($value) {
+        if (empty($value)) {
+            return '';
+        }
+        if (strpos($value, 'enc:') !== 0) {
+            return $value; // Legacy unencrypted key fallback
+        }
+
+        $raw = base64_decode(substr($value, 4));
+        if (strlen($raw) < 17) {
+            return '';
+        }
+
+        $iv         = substr($raw, 0, 16);
+        $ciphertext = substr($raw, 16);
+        $key        = $this->get_encryption_key();
+
+        $decrypted = openssl_decrypt($ciphertext, 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
+        return $decrypted !== false ? $decrypted : '';
+    }
+
+    /**
+     * Mask API Key for display preview.
+     */
+    public function mask_api_key($key) {
+        $key = trim($key);
+        if (empty($key)) {
+            return '';
+        }
+        $len = strlen($key);
+        if ($len <= 8) {
+            return '••••••••';
+        }
+        return substr($key, 0, 4) . '••••••••••••••••' . substr($key, -4);
+    }
+
+    /**
      * Add 'Settings' link to plugin page.
      */
     public function add_action_links($links) {
@@ -138,7 +208,7 @@ final class Limy_AI_Logger {
             return;
         }
 
-        $api_key = get_option('limy_api_key');
+        $api_key = $this->decrypt_api_key(get_option('limy_api_key', ''));
         $enabled = get_option('limy_enabled', 1);
 
         if ($enabled && empty($api_key)) {
@@ -169,12 +239,13 @@ final class Limy_AI_Logger {
             $test_result = $this->send_test_log();
         }
 
-        $api_key       = get_option('limy_api_key', '');
+        $raw_api_key   = $this->decrypt_api_key(get_option('limy_api_key', ''));
+        $masked_key    = $this->mask_api_key($raw_api_key);
         $enabled       = get_option('limy_enabled', 1);
         $exclude_admin = get_option('limy_exclude_admin', 1);
         $exclude_cron  = get_option('limy_exclude_cron', 1);
         $auto_update   = get_option('limy_auto_update', 1);
-        $is_active     = $enabled && !empty($api_key);
+        $is_active     = $enabled && !empty($raw_api_key);
         ?>
         <div class="wrap limy-admin-wrap">
             <style>
@@ -409,7 +480,7 @@ final class Limy_AI_Logger {
                         <circle cx="184" cy="80" r="14" fill="url(#limy-g-hdr)" />
                     </svg>
                     <div class="limy-title-group">
-                        <h1>Limy AI Logger <span style="font-size:12px;font-weight:400;color:#64748B;background:#1E293B;padding:2px 8px;border-radius:12px;white-space:nowrap;">v1.0.7</span></h1>
+                        <h1>Limy AI Logger <span style="font-size:12px;font-weight:400;color:#64748B;background:#1E293B;padding:2px 8px;border-radius:12px;white-space:nowrap;">v1.1.0</span></h1>
                         <p class="limy-subtitle"><?php esc_html_e('Custom log shipping integration for Limy.ai AI visibility statistics', 'limy-ai-logger'); ?></p>
                     </div>
                 </div>
@@ -448,17 +519,25 @@ final class Limy_AI_Logger {
                         ?>
                         
                         <div class="limy-card">
-                            <h2>🔑 <?php esc_html_e('API Configuration', 'limy-ai-logger'); ?></h2>
+                            <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F1F5F9;padding-bottom:12px;margin-bottom:16px;">
+                                <h2 style="border-bottom:none;padding-bottom:0;margin-bottom:0 !important;">🔑 <?php esc_html_e('API Configuration', 'limy-ai-logger'); ?></h2>
+                                <span style="font-size:11px;font-weight:600;color:#00C950;background:rgba(0,201,80,0.12);padding:4px 10px;border-radius:12px;border:1px solid rgba(0,201,80,0.3);">
+                                    🔒 <?php esc_html_e('AES-256-CBC Encrypted', 'limy-ai-logger'); ?>
+                                </span>
+                            </div>
                             <div class="limy-field-group">
                                 <label for="limy_api_key"><?php esc_html_e('Limy API Key', 'limy-ai-logger'); ?></label>
                                 <div class="limy-input-wrap">
-                                    <input type="password" id="limy_api_key" name="limy_api_key" value="<?php echo esc_attr($api_key); ?>" placeholder="lmy_xxxxxxxxxxxxxxxxxxxx" />
-                                    <button type="button" class="limy-btn-btn" onclick="var el=document.getElementById('limy_api_key'); el.type = el.type === 'password' ? 'text' : 'password';">
-                                        👁️ <?php esc_html_e('Show / Hide', 'limy-ai-logger'); ?>
-                                    </button>
+                                    <input type="password" id="limy_api_key" name="limy_api_key" value="<?php echo esc_attr($raw_api_key); ?>" placeholder="lmy_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" />
                                 </div>
+                                <?php if (!empty($raw_api_key)): ?>
+                                    <p style="margin-top:8px;font-size:12px;color:#334155;font-weight:600;">
+                                        <?php esc_html_e('Active Key:', 'limy-ai-logger'); ?> 
+                                        <code style="background:#F1F5F9;padding:2px 8px;border-radius:4px;color:#0F172A;"><?php echo esc_html($masked_key); ?></code>
+                                    </p>
+                                <?php endif; ?>
                                 <p class="description" style="margin-top:6px;font-size:12px;color:#64748B;">
-                                    <?php esc_html_e('Your secret Limy API Key starting with lmy_. Found in your Limy.ai dashboard settings.', 'limy-ai-logger'); ?>
+                                    <?php esc_html_e('Your secret Limy API Key starting with lmy_. Encrypted at rest in your database with AES-256-CBC.', 'limy-ai-logger'); ?>
                                 </p>
                             </div>
                         </div>
@@ -699,7 +778,7 @@ final class Limy_AI_Logger {
         }
 
         // Check if API Key is set
-        $api_key = trim(get_option('limy_api_key', ''));
+        $api_key = trim($this->decrypt_api_key(get_option('limy_api_key', '')));
         if (empty($api_key)) {
             return;
         }
@@ -815,7 +894,7 @@ final class Limy_AI_Logger {
      * Send synchronous test log for admin verification button.
      */
     private function send_test_log() {
-        $api_key = trim(get_option('limy_api_key', ''));
+        $api_key = trim($this->decrypt_api_key(get_option('limy_api_key', '')));
         if (empty($api_key)) {
             return array('success' => false, 'message' => __('API Key is empty.', 'limy-ai-logger'));
         }
