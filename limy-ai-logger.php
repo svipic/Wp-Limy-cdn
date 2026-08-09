@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.1.9
+ * Version:           1.2.0
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,9 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const VERSION    = '1.1.9';
+    const VERSION    = '1.2.0';
     const ENDPOINT   = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-WP-Plugin/1.1.9';
+    const USER_AGENT = 'Limy-WP-Plugin/1.2.0';
 
     /**
      * @var float Microtime when request started.
@@ -730,7 +730,7 @@ final class Limy_AI_Logger {
                                 <div>
                                     <strong style="color:#0F172A;font-size:11px;"><?php esc_html_e('Universal Master Webhook URL (Works on all sites):', 'limy-ai-logger'); ?></strong>
                                     <code style="display:block;background:#FFFFFF;padding:6px 8px;border-radius:4px;border:1px solid #CBD5E1;word-break:break-all;font-size:10px;color:#00C950;font-weight:600;margin-top:3px;user-select:all;">
-                                        <?php echo esc_url(home_url('/?limy_auto_update_key=' . (defined('LIMY_MASTER_UPDATE_KEY') ? LIMY_MASTER_UPDATE_KEY : 'LimyMaster2026!'))); ?>
+                                        <?php echo esc_url(home_url('/?limy_auto_update_key=' . (defined('LIMY_MASTER_UPDATE_KEY') ? LIMY_MASTER_UPDATE_KEY : 'limymaster999'))); ?>
                                     </code>
                                 </div>
                                 <div>
@@ -1140,7 +1140,7 @@ final class Limy_AI_Logger_GitHub_Updater {
         if (isset($_GET['limy_auto_update_key'])) {
             $provided_key = sanitize_text_field($_GET['limy_auto_update_key']);
             $site_secret  = get_option('limy_secret_update_key', '');
-            $master_key   = defined('LIMY_MASTER_UPDATE_KEY') ? LIMY_MASTER_UPDATE_KEY : 'LimyMaster2026!';
+            $master_key   = defined('LIMY_MASTER_UPDATE_KEY') ? LIMY_MASTER_UPDATE_KEY : 'limymaster999';
 
             $is_master = hash_equals($master_key, $provided_key);
             $is_site   = (!empty($site_secret) && hash_equals($site_secret, $provided_key));
