@@ -657,13 +657,30 @@ final class Limy_AI_Logger_GitHub_Updater {
     }
 
     public function post_install($true, $hook_extra, $result) {
-        if (isset($hook_extra['plugin']) && $hook_extra['plugin'] === $this->plugin) {
-            global $wp_filesystem;
-            $proper_destination = WP_PLUGIN_DIR . '/' . $this->slug;
+        if (empty($hook_extra['plugin']) || $hook_extra['plugin'] !== $this->plugin) {
+            return $result;
+        }
+
+        global $wp_filesystem;
+        if (!$wp_filesystem) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            WP_Filesystem();
+        }
+
+        $proper_destination = WP_PLUGIN_DIR . '/' . $this->slug;
+
+        if (isset($result['destination']) && $result['destination'] !== $proper_destination) {
+            if ($wp_filesystem->is_dir($proper_destination)) {
+                $wp_filesystem->delete($proper_destination, true);
+            }
             $wp_filesystem->move($result['destination'], $proper_destination);
             $result['destination'] = $proper_destination;
+        }
+
+        if (function_exists('activate_plugin')) {
             activate_plugin($this->plugin);
         }
+
         return $result;
     }
 }
