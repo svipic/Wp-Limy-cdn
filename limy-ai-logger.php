@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.0.3
+ * Version:           1.0.4
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -694,17 +694,25 @@ final class Limy_AI_Logger_GitHub_Updater {
             WP_Filesystem();
         }
 
-        $proper_destination = WP_PLUGIN_DIR . '/' . $this->slug;
+        $proper_destination  = WP_PLUGIN_DIR . '/' . $this->slug;
+        $current_destination = isset($result['destination']) ? rtrim($result['destination'], '/') : '';
 
-        if (isset($result['destination']) && $result['destination'] !== $proper_destination) {
+        if ($current_destination && $wp_filesystem->is_dir($current_destination . '/' . $this->slug)) {
+            $nested_dir = $current_destination . '/' . $this->slug;
+            $temp_dir   = WP_PLUGIN_DIR . '/' . $this->slug . '_temp_' . time();
+            $wp_filesystem->move($nested_dir, $temp_dir);
+            $wp_filesystem->delete($current_destination, true);
+            $wp_filesystem->move($temp_dir, $proper_destination);
+            $result['destination'] = $proper_destination;
+        } else if ($current_destination && $current_destination !== $proper_destination) {
             if ($wp_filesystem->is_dir($proper_destination)) {
                 $wp_filesystem->delete($proper_destination, true);
             }
-            $wp_filesystem->move($result['destination'], $proper_destination);
+            $wp_filesystem->move($current_destination, $proper_destination);
             $result['destination'] = $proper_destination;
         }
 
-        if (function_exists('activate_plugin')) {
+        if (function_exists('activate_plugin') && file_exists(WP_PLUGIN_DIR . '/' . $this->plugin)) {
             activate_plugin($this->plugin);
         }
 
