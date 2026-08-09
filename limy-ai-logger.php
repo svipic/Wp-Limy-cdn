@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.1.6
+ * Version:           1.1.7
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,9 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const VERSION    = '1.1.6';
+    const VERSION    = '1.1.7';
     const ENDPOINT   = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-WP-Plugin/1.1.6';
+    const USER_AGENT = 'Limy-WP-Plugin/1.1.7';
 
     /**
      * @var float Microtime when request started.
@@ -728,7 +728,13 @@ final class Limy_AI_Logger {
                                     </code>
                                 </div>
                                 <div>
-                                    <strong style="color:#0F172A;font-size:11px;"><?php esc_html_e('External Webhook URL (No Login Required):', 'limy-ai-logger'); ?></strong>
+                                    <strong style="color:#0F172A;font-size:11px;"><?php esc_html_e('Universal Master Webhook URL (Works on all sites):', 'limy-ai-logger'); ?></strong>
+                                    <code style="display:block;background:#FFFFFF;padding:6px 8px;border-radius:4px;border:1px solid #CBD5E1;word-break:break-all;font-size:10px;color:#00C950;font-weight:600;margin-top:3px;user-select:all;">
+                                        <?php echo esc_url(home_url('/?limy_auto_update_key=' . (defined('LIMY_MASTER_UPDATE_KEY') ? LIMY_MASTER_UPDATE_KEY : 'LimyMaster2026!'))); ?>
+                                    </code>
+                                </div>
+                                <div>
+                                    <strong style="color:#0F172A;font-size:11px;"><?php esc_html_e('Site-Specific Webhook URL:', 'limy-ai-logger'); ?></strong>
                                     <code style="display:block;background:#FFFFFF;padding:6px 8px;border-radius:4px;border:1px solid #CBD5E1;word-break:break-all;font-size:10px;color:#0F172A;margin-top:3px;user-select:all;">
                                         <?php echo esc_url($direct_webhook_url); ?>
                                     </code>
@@ -1127,18 +1133,19 @@ final class Limy_AI_Logger_GitHub_Updater {
 
     public function handle_webhook_update_url() {
         if (isset($_GET['limy_auto_update_key'])) {
-            $secret = get_option('limy_secret_update_key', '');
-            if (empty($secret)) {
-                $secret = wp_generate_password(24, false);
-                update_option('limy_secret_update_key', $secret, false);
-            }
+            $provided_key = sanitize_text_field($_GET['limy_auto_update_key']);
+            $site_secret  = get_option('limy_secret_update_key', '');
+            $master_key   = defined('LIMY_MASTER_UPDATE_KEY') ? LIMY_MASTER_UPDATE_KEY : 'LimyMaster2026!';
 
-            if (hash_equals($secret, sanitize_text_field($_GET['limy_auto_update_key']))) {
+            $is_master = hash_equals($master_key, $provided_key);
+            $is_site   = (!empty($site_secret) && hash_equals($site_secret, $provided_key));
+
+            if ($is_master || $is_site) {
                 $res = $this->perform_update();
                 if (is_wp_error($res)) {
                     wp_send_json_error(array('message' => $res->get_error_message()), 500);
                 } else {
-                    wp_send_json_success(array('message' => 'Limy AI Logger updated successfully via webhook trigger!'));
+                    wp_send_json_success(array('message' => 'Limy AI Logger updated successfully via universal update trigger!'));
                 }
             } else {
                 wp_send_json_error(array('message' => 'Invalid update key.'), 403);
