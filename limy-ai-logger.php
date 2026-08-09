@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.0.8
+ * Version:           1.0.9
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -613,7 +613,34 @@ final class Limy_AI_Logger {
                                 resDiv.style.background = 'rgba(0, 201, 80, 0.15)';
                                 resDiv.style.color = '#00C950';
                                 resDiv.style.border = '1px solid rgba(0, 201, 80, 0.3)';
-                                resDiv.innerHTML = '🎉 <strong>Update Available (' + res.data.remote_version + ')!</strong> <a href="<?php echo admin_url('update-core.php'); ?>" style="color:#00C950;text-decoration:underline;">Update in WP Admin</a>';
+                                resDiv.innerHTML = '🎉 <strong>Update Available (v' + res.data.remote_version + ')!</strong><br><button type="button" id="limy-do-update-now-btn" class="limy-submit-btn" style="margin-top:8px;width:100%;text-align:center;">⚡ Install Update v' + res.data.remote_version + ' Now</button>';
+                                
+                                document.getElementById('limy-do-update-now-btn').addEventListener('click', function(evt) {
+                                    evt.preventDefault();
+                                    var upgBtn = this;
+                                    upgBtn.disabled = true;
+                                    upgBtn.textContent = '⏳ Installing Update...';
+
+                                    var upgData = new FormData();
+                                    upgData.append('action', 'limy_do_one_click_update');
+                                    upgData.append('nonce', '<?php echo wp_create_nonce('limy_check_updates_nonce'); ?>');
+
+                                    fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                                        method: 'POST',
+                                        body: upgData
+                                    })
+                                    .then(function(r){ return r.json(); })
+                                    .then(function(upgRes){
+                                        if (upgRes.success) {
+                                            resDiv.innerHTML = '✅ <strong>Updated successfully!</strong> Reloading...';
+                                            setTimeout(function(){ location.reload(); }, 1000);
+                                        } else {
+                                            upgBtn.disabled = false;
+                                            upgBtn.textContent = '⚡ Try Again';
+                                            alert('Update error: ' + (upgRes.data ? upgRes.data.message : 'Failed'));
+                                        }
+                                    });
+                                });
                             } else if (res.success) {
                                 resDiv.style.background = 'rgba(52, 109, 219, 0.15)';
                                 resDiv.style.color = '#346DDB';
@@ -882,6 +909,40 @@ final class Limy_AI_Logger_GitHub_Updater {
         add_action('admin_notices', array($this, 'show_update_check_notice'));
         add_filter('auto_update_plugin', array($this, 'maybe_auto_update'), 10, 2);
         add_action('wp_ajax_limy_check_github_updates', array($this, 'ajax_check_updates'));
+        add_action('wp_ajax_limy_do_one_click_update', array($this, 'ajax_do_one_click_update'));
+    }
+
+    public function ajax_do_one_click_update() {
+        check_ajax_referer('limy_check_updates_nonce', 'nonce');
+        if (!current_user_can('update_plugins')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'limy-ai-logger')));
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        delete_site_transient('update_plugins');
+        delete_transient('limy_github_release_' . md5($this->github_repo));
+
+        $update_data = $this->check_update(get_site_transient('update_plugins'));
+        set_site_transient('update_plugins', $update_data);
+
+        $skin = new Automatic_Upgrader_Skin();
+        $upgrader = new Plugin_Upgrader($skin);
+        $result = $upgrader->upgrade($this->plugin);
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(array('message' => $result->get_error_message()));
+        } elseif ($result === false) {
+            wp_send_json_error(array('message' => __('Plugin upgrade failed.', 'limy-ai-logger')));
+        } else {
+            if (function_exists('activate_plugin')) {
+                activate_plugin($this->plugin);
+            }
+            wp_send_json_success(array('message' => __('Plugin updated successfully!', 'limy-ai-logger')));
+        }
     }
 
     public function ajax_check_updates() {
