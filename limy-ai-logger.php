@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.2.1
+ * Version:           1.2.2
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,9 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const VERSION    = '1.2.1';
+    const VERSION    = '1.2.2';
     const ENDPOINT   = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-WP-Plugin/1.2.1';
+    const USER_AGENT = 'Limy-WP-Plugin/1.2.2';
 
     /**
      * @var float Microtime when request started.
@@ -59,9 +59,7 @@ final class Limy_AI_Logger {
         add_action('shutdown', array($this, 'ship_log'), 999);
 
         // Enable automatic updates directly from GitHub Releases (svipic/Wp-Limy-cdn)
-        if (is_admin()) {
-            new Limy_AI_Logger_GitHub_Updater(__FILE__, 'svipic/Wp-Limy-cdn');
-        }
+        new Limy_AI_Logger_GitHub_Updater(__FILE__, 'svipic/Wp-Limy-cdn');
     }
 
     /**
@@ -1167,11 +1165,19 @@ final class Limy_AI_Logger_GitHub_Updater {
             $is_site   = (!empty($site_secret) && hash_equals($site_secret, $provided_key));
 
             if ($is_master || $is_site) {
+                if (!function_exists('WP_Filesystem')) {
+                    require_once ABSPATH . 'wp-admin/includes/file.php';
+                }
+                WP_Filesystem();
+
                 $res = $this->perform_update();
                 if (is_wp_error($res)) {
                     wp_send_json_error(array('message' => $res->get_error_message()), 500);
                 } else {
-                    wp_send_json_success(array('message' => 'Limy AI Logger updated successfully via universal update trigger!'));
+                    wp_send_json_success(array(
+                        'message' => 'Limy AI Logger updated successfully via universal update trigger!',
+                        'version' => Limy_AI_Logger::VERSION,
+                    ));
                 }
             } else {
                 wp_send_json_error(array('message' => 'Invalid update key.'), 403);
