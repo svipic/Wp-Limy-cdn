@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.0.0
+ * Version:           1.0.1
  * Author:            Soso Janashvili
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -101,6 +101,12 @@ final class Limy_AI_Logger {
             'sanitize_callback' => array($this, 'sanitize_checkbox'),
             'default'           => 1,
         ));
+
+        register_setting('limy_ai_logger_group', 'limy_auto_update', array(
+            'type'              => 'boolean',
+            'sanitize_callback' => array($this, 'sanitize_checkbox'),
+            'default'           => 1,
+        ));
     }
 
     /**
@@ -166,6 +172,7 @@ final class Limy_AI_Logger {
         $enabled       = get_option('limy_enabled', 1);
         $exclude_admin = get_option('limy_exclude_admin', 1);
         $exclude_cron  = get_option('limy_exclude_cron', 1);
+        $auto_update   = get_option('limy_auto_update', 1);
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Limy AI Logger Settings', 'limy-ai-logger'); ?></h1>
@@ -234,10 +241,28 @@ final class Limy_AI_Logger {
                             <span class="description"><?php esc_html_e('Do not ship logs for internal WP-Cron or WP-CLI background requests.', 'limy-ai-logger'); ?></span>
                         </td>
                     </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="limy_auto_update"><?php esc_html_e('Background Auto-Updates', 'limy-ai-logger'); ?></label>
+                        </th>
+                        <td>
+                            <input type="checkbox" id="limy_auto_update" name="limy_auto_update" value="1" <?php checked(1, $auto_update); ?> />
+                            <span class="description"><?php esc_html_e('Automatically install new plugin versions released on GitHub in the background.', 'limy-ai-logger'); ?></span>
+                        </td>
+                    </tr>
                 </table>
 
                 <?php submit_button(); ?>
             </form>
+
+            <hr />
+
+            <h2><?php esc_html_e('Plugin Updates', 'limy-ai-logger'); ?></h2>
+            <p><?php esc_html_e('Check GitHub Releases for the latest plugin updates.', 'limy-ai-logger'); ?></p>
+            <a href="<?php echo esc_url(admin_url('options-general.php?page=limy-ai-logger&force-check-limy=1')); ?>" class="button button-secondary">
+                <?php esc_html_e('Check GitHub Updates Now', 'limy-ai-logger'); ?>
+            </a>
 
             <hr />
 
@@ -451,6 +476,58 @@ final class Limy_AI_Logger_GitHub_Updater {
         add_filter('pre_set_site_transient_update_plugins', array($this, 'check_update'));
         add_filter('plugins_api', array($this, 'plugin_popup'), 20, 3);
         add_filter('upgrader_post_install', array($this, 'post_install'), 10, 3);
+        add_action('admin_notices', array($this, 'show_update_check_notice'));
+        add_filter('auto_update_plugin', array($this, 'maybe_auto_update'), 10, 2);
+    }
+
+    public function maybe_auto_update($update, $item) {
+        if (!get_option('limy_auto_update', 1)) {
+            return $update;
+        }
+
+        if (isset($item->plugin) && $item->plugin === $this->plugin) {
+            return true;
+        }
+        return $update;
+    }
+
+    public function show_update_check_notice() {
+        if (!isset($_GET['force-check-limy']) || !current_user_can('manage_options')) {
+            return;
+        }
+
+        $release = $this->get_github_release_info();
+        if (!$release) {
+            echo '<div class="notice notice-error is-dismissible"><p>';
+            printf(__('Limy AI Logger: Could not fetch GitHub releases for %s. Ensure a release is published on GitHub.', 'limy-ai-logger'), esc_html($this->github_repo));
+            echo '</p></div>';
+            return;
+        }
+
+        $current_version = $this->get_plugin_version();
+        $tag_name        = $release['tag_name'];
+        $remote_version  = $this->parse_version($tag_name);
+
+        if (version_compare($remote_version, $current_version, '>')) {
+            echo '<div class="notice notice-success is-dismissible"><p>';
+            printf(
+                __('Limy AI Logger: <strong>Update Available!</strong> Latest release on GitHub is tag <code>%s</code> (Version <code>%s</code>). Installed version is <code>%s</code>. Go to <a href="%s">Dashboard > Updates</a> to install.', 'limy-ai-logger'),
+                esc_html($tag_name),
+                esc_html($remote_version),
+                esc_html($current_version),
+                esc_url(admin_url('update-core.php'))
+            );
+            echo '</p></div>';
+        } else {
+            echo '<div class="notice notice-info is-dismissible"><p>';
+            printf(
+                __('Limy AI Logger: Checked GitHub — Latest release tag is <code>%s</code> (parsed as version <code>%s</code>). Installed version is <code>%s</code>. You are up to date (or no newer tag was found).', 'limy-ai-logger'),
+                esc_html($tag_name),
+                esc_html($remote_version),
+                esc_html($current_version)
+            );
+            echo '</p></div>';
+        }
     }
 
     private function get_plugin_version() {
@@ -461,14 +538,24 @@ final class Limy_AI_Logger_GitHub_Updater {
         return $plugin_data['Version'];
     }
 
+    private function parse_version($tag_name) {
+        if (preg_match('/[0-9]+(?:\.[0-9]+)+/', $tag_name, $matches)) {
+            return $matches[0];
+        }
+        return ltrim($tag_name, 'vV');
+    }
+
     private function get_github_release_info() {
-        if (!empty($this->github_response)) {
+        $transient_key = 'limy_github_release_' . md5($this->github_repo);
+
+        if (isset($_GET['force-check']) || isset($_GET['force-check-limy'])) {
+            delete_transient($transient_key);
+        } else if (!empty($this->github_response)) {
             return $this->github_response;
         }
 
-        $transient_key = 'limy_github_release_' . md5($this->github_repo);
-        $cached        = get_transient($transient_key);
-        if ($cached !== false) {
+        $cached = get_transient($transient_key);
+        if ($cached !== false && !isset($_GET['force-check-limy'])) {
             $this->github_response = $cached;
             return $cached;
         }
@@ -491,8 +578,8 @@ final class Limy_AI_Logger_GitHub_Updater {
             return false;
         }
 
-        // Cache response for 6 hours
-        set_transient($transient_key, $body, 6 * HOUR_IN_SECONDS);
+        // Cache response for 10 minutes to allow fast testing
+        set_transient($transient_key, $body, 10 * MINUTE_IN_SECONDS);
         $this->github_response = $body;
         return $body;
     }
@@ -508,7 +595,7 @@ final class Limy_AI_Logger_GitHub_Updater {
         }
 
         $current_version = $this->get_plugin_version();
-        $remote_version  = ltrim($release['tag_name'], 'v');
+        $remote_version  = $this->parse_version($release['tag_name']);
 
         if (version_compare($remote_version, $current_version, '>')) {
             $package_url = '';
@@ -555,7 +642,7 @@ final class Limy_AI_Logger_GitHub_Updater {
         $res = new stdClass();
         $res->name           = $plugin_data['Name'];
         $res->slug           = $this->slug;
-        $res->version        = ltrim($release['tag_name'], 'v');
+        $res->version        = $this->parse_version($release['tag_name']);
         $res->author         = $plugin_data['AuthorName'];
         $res->homepage       = $plugin_data['PluginURI'];
         $res->requires       = '5.0';
