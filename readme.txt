@@ -4,7 +4,7 @@ Donate link: https://idox.co.il
 Tags: limy, ai analytics, log shipping, tracking pixel, custom log shipping
 Requires at least: 5.0
 Tested up to: 6.8
-Stable tag: 1.0.4
+Stable tag: 1.0.5
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,7 +16,7 @@ Limy AI Logger is a lightweight integration plugin that ships your WordPress web
 
 = Author & Credits =
 Developed by **Soso Janashvili** ([Instagram](https://www.instagram.com/soso_janashvili/)).
-Brought to you by [iDox Digital Marketing](https://idox.co.il), Saban Marketing, and One Marketing.
+Brought to you by [iDox Digital Marketing](https://idox.co.il), [Saban Marketing](https://saban.marketing/), and [One Marketing](https://one1.co.il).
 
 = Key Features =
 * **Non-blocking Asynchronous Shipping**: Logs are dispatched at request completion without delaying page loads or affecting site performance (`'blocking' => false`).
