@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.1.2
+ * Version:           1.1.3
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,9 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const VERSION    = '1.1.2';
+    const VERSION    = '1.1.3';
     const ENDPOINT   = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-WP-Plugin/1.1.2';
+    const USER_AGENT = 'Limy-WP-Plugin/1.1.3';
 
     /**
      * @var float Microtime when request started.
@@ -592,6 +592,38 @@ final class Limy_AI_Logger {
                             </div>
                         </div>
 
+                        <?php
+                        $total_shipped = (int) get_option('limy_total_logs_shipped', 0);
+                        $last_log      = get_option('limy_last_log_shipped', null);
+                        $last_time_str = $last_log ? human_time_diff($last_log['time'], time()) . ' ' . __('ago', 'limy-ai-logger') : __('No logs yet', 'limy-ai-logger');
+                        ?>
+                        <div class="limy-card">
+                            <h2>📊 <?php esc_html_e('Live Log Shipping Activity', 'limy-ai-logger'); ?></h2>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:16px;margin-bottom:16px;">
+                                <div style="background:#F8FAFC;padding:14px;border-radius:10px;border:1px solid #E2E8F0;">
+                                    <div style="font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;margin-bottom:4px;"><?php esc_html_e('Total Logs Shipped', 'limy-ai-logger'); ?></div>
+                                    <div style="font-size:22px;font-weight:700;color:#0F172A;"><?php echo number_format($total_shipped); ?></div>
+                                </div>
+                                <div style="background:#F8FAFC;padding:14px;border-radius:10px;border:1px solid #E2E8F0;">
+                                    <div style="font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;margin-bottom:4px;"><?php esc_html_e('Last Shipping Activity', 'limy-ai-logger'); ?></div>
+                                    <div style="font-size:14px;font-weight:600;color:#0F172A;"><?php echo esc_html($last_time_str); ?></div>
+                                </div>
+                            </div>
+
+                            <?php if ($last_log && !empty($last_log['payload'])): ?>
+                                <details style="cursor:pointer;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px 14px;">
+                                    <summary style="font-size:12px;font-weight:600;color:#334155;outline:none;">
+                                        🔍 <?php esc_html_e('Inspect Last Shipped Payload (JSON)', 'limy-ai-logger'); ?>
+                                    </summary>
+                                    <pre style="background:#0F172A;color:#00C950;padding:14px;border-radius:8px;font-size:12px;margin-top:10px;overflow-x:auto;font-family:monospace;"><?php echo esc_html(wp_json_encode($last_log['payload'], JSON_PRETTY_PRINT)); ?></pre>
+                                </details>
+                            <?php else: ?>
+                                <p style="font-size:13px;color:#64748B;margin:0;">
+                                    <?php esc_html_e('Visit any front-end page on your site to trigger automatic log shipping.', 'limy-ai-logger'); ?>
+                                </p>
+                            <?php endif; ?>
+                        </div>
+
                         <div style="margin-top:20px;">
                             <input type="submit" class="limy-submit-btn" value="<?php esc_attr_e('Save Changes', 'limy-ai-logger'); ?>" />
                         </div>
@@ -819,6 +851,18 @@ final class Limy_AI_Logger {
             'body'        => wp_json_encode(array($log_entry)),
             'data_format' => 'body',
         ));
+
+        // Update shipping statistics & last log preview
+        $total = (int) get_option('limy_total_logs_shipped', 0);
+        update_option('limy_total_logs_shipped', $total + 1, false);
+        update_option('limy_last_log_shipped', array(
+            'time'       => time(),
+            'path'       => $log_entry['path'],
+            'method'     => $log_entry['method'],
+            'ip'         => $log_entry['ip'],
+            'user_agent' => $log_entry['user_agent'],
+            'payload'    => $log_entry,
+        ), false);
     }
 
     /**
