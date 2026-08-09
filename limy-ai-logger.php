@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.0.1
+ * Version:           1.0.2
  * Author:            Soso Janashvili
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -663,7 +663,7 @@ final class Limy_AI_Logger_GitHub_Updater {
         $res->author         = $plugin_data['AuthorName'];
         $res->homepage       = $plugin_data['PluginURI'];
         $res->requires       = '5.0';
-        $res->tested         = '6.6';
+        $res->tested         = '6.8';
         $res->last_updated   = $release['published_at'];
         $res->sections       = array(
             'description' => $plugin_data['Description'],
