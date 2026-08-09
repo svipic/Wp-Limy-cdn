@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.1.7
+ * Version:           1.1.8
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,9 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const VERSION    = '1.1.7';
+    const VERSION    = '1.1.8';
     const ENDPOINT   = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-WP-Plugin/1.1.7';
+    const USER_AGENT = 'Limy-WP-Plugin/1.1.8';
 
     /**
      * @var float Microtime when request started.
@@ -916,10 +916,15 @@ final class Limy_AI_Logger {
         $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field($_SERVER['HTTP_USER_AGENT']) : '';
         $referer = isset($_SERVER['HTTP_REFERER']) ? sanitize_text_field($_SERVER['HTTP_REFERER']) : '';
 
-        // Query parameters
+        // Query parameters (excluding sensitive keys like secret update tokens, passwords, nonces, or API keys)
+        $sensitive_keys = array('limy_auto_update_key', 'limy_secret_update_key', 'password', 'pwd', 'pass', 'token', 'secret', 'nonce', '_wpnonce', 'api_key', 'apikey', 'auth');
         $query_params = new stdClass();
         if (!empty($_GET)) {
             foreach ($_GET as $key => $val) {
+                $clean_key = strtolower(trim($key));
+                if (in_array($clean_key, $sensitive_keys, true)) {
+                    continue; // NEVER send sensitive keys in log payloads!
+                }
                 if (is_scalar($val)) {
                     $k = sanitize_text_field($key);
                     $query_params->$k = sanitize_text_field($val);
