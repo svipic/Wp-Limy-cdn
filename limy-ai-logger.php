@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.1.1
+ * Version:           1.1.2
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,8 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const ENDPOINT = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-Custom-HTTP/1.0';
+    const VERSION    = '1.1.2';
+    const ENDPOINT   = 'https://stream.getlimy.ai';
+    const USER_AGENT = 'Limy-WP-Plugin/1.1.2';
 
     /**
      * @var float Microtime when request started.
@@ -481,7 +482,7 @@ final class Limy_AI_Logger {
                         <circle cx="184" cy="80" r="14" fill="url(#limy-g-hdr)" />
                     </svg>
                     <div class="limy-title-group">
-                        <h1>Limy AI Logger <span style="font-size:12px;font-weight:400;color:#64748B;background:#1E293B;padding:2px 8px;border-radius:12px;white-space:nowrap;">v1.1.0</span></h1>
+                        <h1>Limy AI Logger <span style="font-size:12px;font-weight:400;color:#64748B;background:#1E293B;padding:2px 8px;border-radius:12px;white-space:nowrap;">v<?php echo esc_html(self::VERSION); ?></span></h1>
                         <p class="limy-subtitle"><?php esc_html_e('Custom log shipping integration for Limy.ai AI visibility statistics', 'limy-ai-logger'); ?></p>
                     </div>
                 </div>
