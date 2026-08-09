@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.2.2
+ * Version:           1.3.0
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,9 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const VERSION    = '1.2.2';
+    const VERSION    = '1.3.0';
     const ENDPOINT   = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-WP-Plugin/1.2.2';
+    const USER_AGENT = 'Limy-WP-Plugin/1.3.0';
 
     /**
      * @var float Microtime when request started.
@@ -55,11 +55,50 @@ final class Limy_AI_Logger {
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_action_links'));
         add_action('wp_ajax_limy_test_ping', array($this, 'ajax_test_ping'));
 
+        // Client-side analytics JS SDK script hook
+        add_action('wp_head', array($this, 'inject_analytics_script'));
+
         // Core log shipping hook - runs at the end of the request
         add_action('shutdown', array($this, 'ship_log'), 999);
 
         // Enable automatic updates directly from GitHub Releases (svipic/Wp-Limy-cdn)
         new Limy_AI_Logger_GitHub_Updater(__FILE__, 'svipic/Wp-Limy-cdn');
+    }
+
+    /**
+     * Inject Limy Analytics JS SDK into <head> if enabled.
+     */
+    public function inject_analytics_script() {
+        if (!get_option('limy_enable_analytics', 0)) {
+            return;
+        }
+
+        $api_key = trim($this->decrypt_api_key(get_option('limy_api_key', '')));
+        if (empty($api_key)) {
+            return;
+        }
+
+        // Exclude WP Admin / logged-in administrators if option is enabled
+        if (get_option('limy_exclude_admin', 1) && (is_admin() || (function_exists('is_user_logged_in') && is_user_logged_in() && current_user_can('manage_options')))) {
+            return;
+        }
+
+        ?>
+<!-- Limy Analytics SDK -->
+<script>
+  (function(l,i,m,y,g,e,o){
+    l[m] = l[m] || function(){ (l[m].q = l[m].q || []).push(arguments) };
+    e = i.createElement(y);
+    e.async = 1;
+    e.id = 'limy-analytics';
+    e.src = 'https://sdk.getlimy.ai/p/limy-analytics.min.js';
+    e.setAttribute(m, g);
+    o = i.getElementsByTagName(y)[0];
+    o.parentNode.insertBefore(e, o);
+  })(window, document, 'limy', 'script', '<?php echo esc_js($api_key); ?>');
+</script>
+<!-- End Limy Analytics SDK -->
+        <?php
     }
 
     /**
@@ -127,6 +166,12 @@ final class Limy_AI_Logger {
             'type'              => 'boolean',
             'sanitize_callback' => array($this, 'sanitize_checkbox'),
             'default'           => 1,
+        ));
+
+        register_setting('limy_ai_logger_group', 'limy_enable_analytics', array(
+            'type'              => 'boolean',
+            'sanitize_callback' => array($this, 'sanitize_checkbox'),
+            'default'           => 0,
         ));
     }
 
@@ -265,8 +310,9 @@ final class Limy_AI_Logger {
         $enabled       = get_option('limy_enabled', 1);
         $exclude_admin = get_option('limy_exclude_admin', 1);
         $exclude_cron  = get_option('limy_exclude_cron', 1);
-        $auto_update   = get_option('limy_auto_update', 1);
-        $is_active     = $enabled && !empty($raw_api_key);
+        $auto_update      = get_option('limy_auto_update', 1);
+        $enable_analytics = get_option('limy_enable_analytics', 0);
+        $is_active        = $enabled && !empty($raw_api_key);
         ?>
         <div class="wrap limy-admin-wrap">
             <style>
@@ -606,6 +652,17 @@ final class Limy_AI_Logger {
                                 </div>
                                 <label class="limy-switch">
                                     <input type="checkbox" name="limy_auto_update" value="1" <?php checked(1, $auto_update); ?> />
+                                    <span class="limy-slider"></span>
+                                </label>
+                            </div>
+
+                            <div class="limy-toggle-row">
+                                <div class="limy-toggle-info">
+                                    <div class="limy-toggle-title"><?php esc_html_e('Enable Limy Analytics (JS SDK)', 'limy-ai-logger'); ?></div>
+                                    <div class="limy-toggle-desc"><?php esc_html_e('Inject Limy.ai client-side tracking script into your site header using your API Key.', 'limy-ai-logger'); ?></div>
+                                </div>
+                                <label class="limy-switch">
+                                    <input type="checkbox" name="limy_enable_analytics" value="1" <?php checked(1, $enable_analytics); ?> />
                                     <span class="limy-slider"></span>
                                 </label>
                             </div>
