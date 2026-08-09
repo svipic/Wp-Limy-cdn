@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.3.0
+ * Version:           1.4.0
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,9 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const VERSION    = '1.3.0';
+    const VERSION    = '1.4.0';
     const ENDPOINT   = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-WP-Plugin/1.3.0';
+    const USER_AGENT = 'Limy-WP-Plugin/1.4.0';
 
     /**
      * @var float Microtime when request started.
@@ -69,7 +69,7 @@ final class Limy_AI_Logger {
      * Inject Limy Analytics JS SDK into <head> if enabled.
      */
     public function inject_analytics_script() {
-        if (!get_option('limy_enable_analytics', 0)) {
+        if (!get_option('limy_enable_analytics', 1)) {
             return;
         }
 
@@ -171,7 +171,7 @@ final class Limy_AI_Logger {
         register_setting('limy_ai_logger_group', 'limy_enable_analytics', array(
             'type'              => 'boolean',
             'sanitize_callback' => array($this, 'sanitize_checkbox'),
-            'default'           => 0,
+            'default'           => 1,
         ));
     }
 
@@ -585,6 +585,7 @@ final class Limy_AI_Logger {
                         do_settings_sections('limy_ai_logger_group');
                         ?>
                         
+                        <!-- Card 1: API Configuration -->
                         <div class="limy-card">
                             <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F1F5F9;padding-bottom:12px;margin-bottom:16px;">
                                 <h2 style="border-bottom:none;padding-bottom:0;margin-bottom:0 !important;">🔑 <?php esc_html_e('API Configuration', 'limy-ai-logger'); ?></h2>
@@ -609,57 +610,19 @@ final class Limy_AI_Logger {
                             </div>
                         </div>
 
-                        <div class="limy-card">
-                            <h2>⚙️ <?php esc_html_e('Logging & Filter Rules', 'limy-ai-logger'); ?></h2>
-
-                            <div class="limy-toggle-row">
-                                <div class="limy-toggle-info">
-                                    <div class="limy-toggle-title"><?php esc_html_e('Enable Log Shipping', 'limy-ai-logger'); ?></div>
-                                    <div class="limy-toggle-desc"><?php esc_html_e('Enable or disable sending HTTP access logs to Limy.ai stream endpoint.', 'limy-ai-logger'); ?></div>
-                                </div>
-                                <label class="limy-switch">
-                                    <input type="checkbox" name="limy_enabled" value="1" <?php checked(1, $enabled); ?> />
-                                    <span class="limy-slider"></span>
-                                </label>
+                        <!-- Card 2: Limy Analytics (JS SDK) - Prominently Displayed & ON by Default -->
+                        <div class="limy-card" style="border-left: 4px solid #346DDB;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #F1F5F9;padding-bottom:12px;margin-bottom:16px;">
+                                <h2 style="border-bottom:none;padding-bottom:0;margin-bottom:0 !important;">📈 <?php esc_html_e('Limy Analytics Tracking', 'limy-ai-logger'); ?></h2>
+                                <span style="font-size:11px;font-weight:600;color:#346DDB;background:rgba(52,109,219,0.12);padding:4px 10px;border-radius:12px;border:1px solid rgba(52,109,219,0.3);">
+                                    ✨ <?php esc_html_e('ON by Default', 'limy-ai-logger'); ?>
+                                </span>
                             </div>
 
-                            <div class="limy-toggle-row">
+                            <div class="limy-toggle-row" style="padding-top:0;">
                                 <div class="limy-toggle-info">
-                                    <div class="limy-toggle-title"><?php esc_html_e('Exclude WP Admin Requests', 'limy-ai-logger'); ?></div>
-                                    <div class="limy-toggle-desc"><?php esc_html_e('Do not ship logs for requests inside /wp-admin/ or logged-in administrators.', 'limy-ai-logger'); ?></div>
-                                </div>
-                                <label class="limy-switch">
-                                    <input type="checkbox" name="limy_exclude_admin" value="1" <?php checked(1, $exclude_admin); ?> />
-                                    <span class="limy-slider"></span>
-                                </label>
-                            </div>
-
-                            <div class="limy-toggle-row">
-                                <div class="limy-toggle-info">
-                                    <div class="limy-toggle-title"><?php esc_html_e('Exclude WP-Cron & CLI', 'limy-ai-logger'); ?></div>
-                                    <div class="limy-toggle-desc"><?php esc_html_e('Do not ship logs for background WP-Cron jobs or WP-CLI executions.', 'limy-ai-logger'); ?></div>
-                                </div>
-                                <label class="limy-switch">
-                                    <input type="checkbox" name="limy_exclude_cron" value="1" <?php checked(1, $exclude_cron); ?> />
-                                    <span class="limy-slider"></span>
-                                </label>
-                            </div>
-
-                            <div class="limy-toggle-row">
-                                <div class="limy-toggle-info">
-                                    <div class="limy-toggle-title"><?php esc_html_e('Background Auto-Updates', 'limy-ai-logger'); ?></div>
-                                    <div class="limy-toggle-desc"><?php esc_html_e('Automatically install new releases published on GitHub in the background.', 'limy-ai-logger'); ?></div>
-                                </div>
-                                <label class="limy-switch">
-                                    <input type="checkbox" name="limy_auto_update" value="1" <?php checked(1, $auto_update); ?> />
-                                    <span class="limy-slider"></span>
-                                </label>
-                            </div>
-
-                            <div class="limy-toggle-row">
-                                <div class="limy-toggle-info">
-                                    <div class="limy-toggle-title"><?php esc_html_e('Enable Limy Analytics (JS SDK)', 'limy-ai-logger'); ?></div>
-                                    <div class="limy-toggle-desc"><?php esc_html_e('Inject Limy.ai client-side tracking script into your site header using your API Key.', 'limy-ai-logger'); ?></div>
+                                    <div class="limy-toggle-title" style="font-size:14px;"><?php esc_html_e('Enable Limy Analytics (JS SDK)', 'limy-ai-logger'); ?></div>
+                                    <div class="limy-toggle-desc" style="font-size:13px;"><?php esc_html_e('Automatically inject client-side tracking script (limy-analytics.min.js) into your site header using your API Key.', 'limy-ai-logger'); ?></div>
                                 </div>
                                 <label class="limy-switch">
                                     <input type="checkbox" name="limy_enable_analytics" value="1" <?php checked(1, $enable_analytics); ?> />
@@ -668,13 +631,14 @@ final class Limy_AI_Logger {
                             </div>
                         </div>
 
+                        <!-- Card 3: Live Shipping Activity -->
                         <?php
                         $total_shipped = (int) get_option('limy_total_logs_shipped', 0);
                         $last_log      = get_option('limy_last_log_shipped', null);
                         $last_time_str = $last_log ? human_time_diff($last_log['time'], time()) . ' ' . __('ago', 'limy-ai-logger') : __('No logs yet', 'limy-ai-logger');
                         ?>
                         <div class="limy-card">
-                            <h2>📊 <?php esc_html_e('Live Log Shipping Activity', 'limy-ai-logger'); ?></h2>
+                            <h2>📊 <?php esc_html_e('Live Shipping & Analytics Activity', 'limy-ai-logger'); ?></h2>
                             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:16px;margin-bottom:16px;">
                                 <div style="background:#F8FAFC;padding:14px;border-radius:10px;border:1px solid #E2E8F0;">
                                     <div style="font-size:11px;font-weight:600;color:#64748B;text-transform:uppercase;margin-bottom:4px;"><?php esc_html_e('Total Logs Shipped', 'limy-ai-logger'); ?></div>
@@ -699,6 +663,60 @@ final class Limy_AI_Logger {
                                 </p>
                             <?php endif; ?>
                         </div>
+
+                        <!-- Card 4: Advanced Developer Settings (Collapsible Accordion) -->
+                        <details class="limy-card" style="cursor:pointer;">
+                            <summary style="font-size:15px;font-weight:700;color:#0F172A;outline:none;padding:4px 0;">
+                                ⚙️ <?php esc_html_e('Advanced Developer Settings', 'limy-ai-logger'); ?> 
+                                <span style="font-size:12px;font-weight:400;color:#64748B;margin-left:8px;"><?php esc_html_e('(Click to expand filter rules & background update options)', 'limy-ai-logger'); ?></span>
+                            </summary>
+
+                            <div style="margin-top:20px;border-top:1px solid #F1F5F9;padding-top:16px;">
+                                <div class="limy-toggle-row">
+                                    <div class="limy-toggle-info">
+                                        <div class="limy-toggle-title"><?php esc_html_e('Enable Server-Side Log Shipping', 'limy-ai-logger'); ?></div>
+                                        <div class="limy-toggle-desc"><?php esc_html_e('Enable or disable sending HTTP access logs to Limy.ai stream endpoint.', 'limy-ai-logger'); ?></div>
+                                    </div>
+                                    <label class="limy-switch">
+                                        <input type="checkbox" name="limy_enabled" value="1" <?php checked(1, $enabled); ?> />
+                                        <span class="limy-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="limy-toggle-row">
+                                    <div class="limy-toggle-info">
+                                        <div class="limy-toggle-title"><?php esc_html_e('Exclude WP Admin Requests', 'limy-ai-logger'); ?></div>
+                                        <div class="limy-toggle-desc"><?php esc_html_e('Do not ship logs for requests inside /wp-admin/ or logged-in administrators.', 'limy-ai-logger'); ?></div>
+                                    </div>
+                                    <label class="limy-switch">
+                                        <input type="checkbox" name="limy_exclude_admin" value="1" <?php checked(1, $exclude_admin); ?> />
+                                        <span class="limy-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="limy-toggle-row">
+                                    <div class="limy-toggle-info">
+                                        <div class="limy-toggle-title"><?php esc_html_e('Exclude WP-Cron & CLI', 'limy-ai-logger'); ?></div>
+                                        <div class="limy-toggle-desc"><?php esc_html_e('Do not ship logs for background WP-Cron jobs or WP-CLI executions.', 'limy-ai-logger'); ?></div>
+                                    </div>
+                                    <label class="limy-switch">
+                                        <input type="checkbox" name="limy_exclude_cron" value="1" <?php checked(1, $exclude_cron); ?> />
+                                        <span class="limy-slider"></span>
+                                    </label>
+                                </div>
+
+                                <div class="limy-toggle-row">
+                                    <div class="limy-toggle-info">
+                                        <div class="limy-toggle-title"><?php esc_html_e('Background Auto-Updates', 'limy-ai-logger'); ?></div>
+                                        <div class="limy-toggle-desc"><?php esc_html_e('Automatically install new releases published on GitHub in the background.', 'limy-ai-logger'); ?></div>
+                                    </div>
+                                    <label class="limy-switch">
+                                        <input type="checkbox" name="limy_auto_update" value="1" <?php checked(1, $auto_update); ?> />
+                                        <span class="limy-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </details>
 
                         <div style="margin-top:20px;">
                             <input type="submit" class="limy-submit-btn" value="<?php esc_attr_e('Save Changes', 'limy-ai-logger'); ?>" />
