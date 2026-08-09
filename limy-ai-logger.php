@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.0.6
+ * Version:           1.0.7
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -51,6 +51,7 @@ final class Limy_AI_Logger {
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_notices', array($this, 'show_admin_notices'));
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), array($this, 'add_action_links'));
+        add_action('wp_ajax_limy_test_ping', array($this, 'ajax_test_ping'));
 
         // Core log shipping hook - runs at the end of the request
         add_action('shutdown', array($this, 'ship_log'), 999);
@@ -221,6 +222,8 @@ final class Limy_AI_Logger {
                     border-radius: 20px;
                     font-size: 12px;
                     font-weight: 600;
+                    white-space: nowrap;
+                    flex-shrink: 0;
                 }
                 .limy-status-active {
                     background: rgba(0, 201, 80, 0.15);
@@ -406,7 +409,7 @@ final class Limy_AI_Logger {
                         <circle cx="184" cy="80" r="14" fill="url(#limy-g-hdr)" />
                     </svg>
                     <div class="limy-title-group">
-                        <h1>Limy AI Logger <span style="font-size:12px;font-weight:400;color:#64748B;background:#1E293B;padding:2px 8px;border-radius:12px;">v1.0.6</span></h1>
+                        <h1>Limy AI Logger <span style="font-size:12px;font-weight:400;color:#64748B;background:#1E293B;padding:2px 8px;border-radius:12px;white-space:nowrap;">v1.0.7</span></h1>
                         <p class="limy-subtitle"><?php esc_html_e('Custom log shipping integration for Limy.ai AI visibility statistics', 'limy-ai-logger'); ?></p>
                     </div>
                 </div>
@@ -521,11 +524,57 @@ final class Limy_AI_Logger {
                         <p style="font-size:13px;color:#64748B;margin-top:0;margin-bottom:16px;">
                             <?php esc_html_e('Send a live test ping to verify your API Key with Limy.ai.', 'limy-ai-logger'); ?>
                         </p>
-                        <form method="post" action="">
-                            <?php wp_nonce_field('limy_test_connection_nonce'); ?>
-                            <input type="submit" name="limy_test_connection" class="limy-side-btn limy-side-secondary" value="<?php esc_attr_e('Send Test Ping', 'limy-ai-logger'); ?>" <?php disabled(empty($api_key)); ?> />
-                        </form>
+                        <div id="limy-test-result" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:600;"></div>
+                        <button type="button" id="limy-test-ping-btn" class="limy-side-btn limy-side-secondary" <?php disabled(empty($api_key)); ?>>
+                            <?php esc_html_e('Send Test Ping', 'limy-ai-logger'); ?>
+                        </button>
                     </div>
+
+                    <script>
+                    document.getElementById('limy-test-ping-btn').addEventListener('click', function(e) {
+                        e.preventDefault();
+                        var btn = this;
+                        var resDiv = document.getElementById('limy-test-result');
+                        btn.disabled = true;
+                        btn.textContent = '⏳ Sending Ping...';
+                        resDiv.style.display = 'none';
+
+                        var data = new FormData();
+                        data.append('action', 'limy_test_ping');
+                        data.append('nonce', '<?php echo wp_create_nonce('limy_test_connection_nonce'); ?>');
+
+                        fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                            method: 'POST',
+                            body: data
+                        })
+                        .then(function(r){ return r.json(); })
+                        .then(function(res){
+                            btn.disabled = false;
+                            btn.textContent = '<?php esc_html_e('Send Test Ping', 'limy-ai-logger'); ?>';
+                            resDiv.style.display = 'block';
+                            if (res.success) {
+                                resDiv.style.background = 'rgba(0, 201, 80, 0.15)';
+                                resDiv.style.color = '#00C950';
+                                resDiv.style.border = '1px solid rgba(0, 201, 80, 0.3)';
+                                resDiv.innerHTML = '<strong>✅ Success!</strong> ' + res.data.message;
+                            } else {
+                                resDiv.style.background = 'rgba(239, 68, 68, 0.15)';
+                                resDiv.style.color = '#EF4444';
+                                resDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+                                resDiv.innerHTML = '<strong>❌ Failed:</strong> ' + (res.data ? res.data.message : 'Error');
+                            }
+                        })
+                        .catch(function(err){
+                            btn.disabled = false;
+                            btn.textContent = '<?php esc_html_e('Send Test Ping', 'limy-ai-logger'); ?>';
+                            resDiv.style.display = 'block';
+                            resDiv.style.background = 'rgba(239, 68, 68, 0.15)';
+                            resDiv.style.color = '#EF4444';
+                            resDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+                            resDiv.innerHTML = '<strong>❌ Error:</strong> Network request failed';
+                        });
+                    });
+                    </script>
 
                     <div class="limy-card">
                         <h2>🔄 <?php esc_html_e('GitHub Updates', 'limy-ai-logger'); ?></h2>
@@ -737,6 +786,23 @@ final class Limy_AI_Logger {
             'success' => false,
             'message' => sprintf(__('HTTP Status %d. Response: %s', 'limy-ai-logger'), $code, esc_html($body)),
         );
+    }
+
+    /**
+     * AJAX handler for instant non-refreshing test ping.
+     */
+    public function ajax_test_ping() {
+        check_ajax_referer('limy_test_connection_nonce', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'limy-ai-logger')));
+        }
+
+        $result = $this->send_test_log();
+        if (!empty($result['success'])) {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result);
+        }
     }
 }
 
