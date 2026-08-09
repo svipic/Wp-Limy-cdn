@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.1.4
+ * Version:           1.1.5
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,9 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const VERSION    = '1.1.4';
+    const VERSION    = '1.1.5';
     const ENDPOINT   = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-WP-Plugin/1.1.4';
+    const USER_AGENT = 'Limy-WP-Plugin/1.1.5';
 
     /**
      * @var float Microtime when request started.
@@ -882,35 +882,46 @@ final class Limy_AI_Logger {
         $referer = isset($_SERVER['HTTP_REFERER']) ? sanitize_text_field($_SERVER['HTTP_REFERER']) : '';
 
         // Query parameters
-        $query_params = array();
+        $query_params = new stdClass();
         if (!empty($_GET)) {
             foreach ($_GET as $key => $val) {
                 if (is_scalar($val)) {
-                    $query_params[sanitize_text_field($key)] = sanitize_text_field($val);
+                    $k = sanitize_text_field($key);
+                    $query_params->$k = sanitize_text_field($val);
                 }
             }
+        }
+
+        // Calculate response size in bytes
+        $bytes_sent = 0;
+        if (function_exists('headers_list')) {
+            foreach (headers_list() as $header) {
+                if (stripos($header, 'Content-Length:') === 0) {
+                    $bytes_sent = (int) trim(substr($header, 15));
+                    break;
+                }
+            }
+        }
+        if (!$bytes_sent && function_exists('ob_get_length')) {
+            $bytes_sent = (int) ob_get_length();
         }
 
         // Calculate duration in milliseconds
         $duration_ms = (int) round((microtime(true) - $this->start_time) * 1000);
 
-        $entry = array(
-            'timestamp'   => gmdate('Y-m-d\TH:i:s\Z'),
-            'method'      => $method,
-            'host'        => $host,
-            'path'        => $path,
-            'status_code' => $status_code,
-            'ip'          => $this->get_client_ip(),
-            'user_agent'  => $user_agent,
-            'referer'     => $referer,
-            'duration_ms' => $duration_ms,
+        return array(
+            'timestamp'    => gmdate('Y-m-d\TH:i:s\Z'),
+            'method'       => $method,
+            'host'         => $host,
+            'path'         => $path,
+            'status_code'  => $status_code,
+            'ip'           => $this->get_client_ip(),
+            'user_agent'   => $user_agent,
+            'referer'      => $referer,
+            'bytes_sent'   => $bytes_sent,
+            'duration_ms'  => $duration_ms,
+            'query_params' => $query_params,
         );
-
-        if (!empty($query_params)) {
-            $entry['query_params'] = (object) $query_params;
-        }
-
-        return $entry;
     }
 
     /**
@@ -954,15 +965,17 @@ final class Limy_AI_Logger {
         }
 
         $log_entry = array(
-            'timestamp'   => gmdate('Y-m-d\TH:i:s\Z'),
-            'method'      => 'GET',
-            'host'        => isset($_SERVER['HTTP_HOST']) ? sanitize_text_field($_SERVER['HTTP_HOST']) : parse_url(home_url(), PHP_URL_HOST),
-            'path'        => '/limy-test-ping',
-            'status_code' => 200,
-            'ip'          => $this->get_client_ip(),
-            'user_agent'  => 'Limy-WP-Plugin-TestPing/1.0',
-            'referer'     => admin_url('options-general.php?page=limy-ai-logger'),
-            'duration_ms' => 10,
+            'timestamp'    => gmdate('Y-m-d\TH:i:s\Z'),
+            'method'       => 'GET',
+            'host'         => isset($_SERVER['HTTP_HOST']) ? sanitize_text_field($_SERVER['HTTP_HOST']) : parse_url(home_url(), PHP_URL_HOST),
+            'path'         => '/limy-test-ping',
+            'status_code'  => 200,
+            'ip'           => $this->get_client_ip(),
+            'user_agent'   => 'Limy-WP-Plugin-TestPing/1.0',
+            'referer'      => admin_url('options-general.php?page=limy-ai-logger'),
+            'bytes_sent'   => 512,
+            'duration_ms'  => 10,
+            'query_params' => (object) array('test' => 'ping'),
         );
 
         $response = wp_remote_post(self::ENDPOINT, array(
