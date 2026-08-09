@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.0.7
+ * Version:           1.0.8
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -581,10 +581,62 @@ final class Limy_AI_Logger {
                         <p style="font-size:13px;color:#64748B;margin-top:0;margin-bottom:16px;">
                             <?php esc_html_e('Check GitHub Releases for latest plugin updates.', 'limy-ai-logger'); ?>
                         </p>
-                        <a href="<?php echo esc_url(admin_url('options-general.php?page=limy-ai-logger&force-check-limy=1')); ?>" class="limy-side-btn limy-side-primary">
+                        <div id="limy-update-check-result" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:8px;font-size:12px;font-weight:600;"></div>
+                        <button type="button" id="limy-check-updates-btn" class="limy-side-btn limy-side-primary">
                             <?php esc_html_e('Check Updates Now', 'limy-ai-logger'); ?>
-                        </a>
+                        </button>
                     </div>
+
+                    <script>
+                    document.getElementById('limy-check-updates-btn').addEventListener('click', function(e) {
+                        e.preventDefault();
+                        var btn = this;
+                        var resDiv = document.getElementById('limy-update-check-result');
+                        btn.disabled = true;
+                        btn.textContent = '⏳ Checking GitHub...';
+                        resDiv.style.display = 'none';
+
+                        var data = new FormData();
+                        data.append('action', 'limy_check_github_updates');
+                        data.append('nonce', '<?php echo wp_create_nonce('limy_check_updates_nonce'); ?>');
+
+                        fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
+                            method: 'POST',
+                            body: data
+                        })
+                        .then(function(r){ return r.json(); })
+                        .then(function(res){
+                            btn.disabled = false;
+                            btn.textContent = '<?php esc_html_e('Check Updates Now', 'limy-ai-logger'); ?>';
+                            resDiv.style.display = 'block';
+                            if (res.success && res.data.has_update) {
+                                resDiv.style.background = 'rgba(0, 201, 80, 0.15)';
+                                resDiv.style.color = '#00C950';
+                                resDiv.style.border = '1px solid rgba(0, 201, 80, 0.3)';
+                                resDiv.innerHTML = '🎉 <strong>Update Available (' + res.data.remote_version + ')!</strong> <a href="<?php echo admin_url('update-core.php'); ?>" style="color:#00C950;text-decoration:underline;">Update in WP Admin</a>';
+                            } else if (res.success) {
+                                resDiv.style.background = 'rgba(52, 109, 219, 0.15)';
+                                resDiv.style.color = '#346DDB';
+                                resDiv.style.border = '1px solid rgba(52, 109, 219, 0.3)';
+                                resDiv.innerHTML = '✅ <strong>Up to date!</strong> Running version ' + res.data.current_version;
+                            } else {
+                                resDiv.style.background = 'rgba(239, 68, 68, 0.15)';
+                                resDiv.style.color = '#EF4444';
+                                resDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+                                resDiv.innerHTML = '❌ ' + (res.data ? res.data.message : 'Error checking GitHub');
+                            }
+                        })
+                        .catch(function(err){
+                            btn.disabled = false;
+                            btn.textContent = '<?php esc_html_e('Check Updates Now', 'limy-ai-logger'); ?>';
+                            resDiv.style.display = 'block';
+                            resDiv.style.background = 'rgba(239, 68, 68, 0.15)';
+                            resDiv.style.color = '#EF4444';
+                            resDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+                            resDiv.innerHTML = '❌ Network request failed';
+                        });
+                    });
+                    </script>
 
                     <div class="limy-card">
                         <h2>👨‍💻 <?php esc_html_e('Developer & Credits', 'limy-ai-logger'); ?></h2>
@@ -829,6 +881,34 @@ final class Limy_AI_Logger_GitHub_Updater {
         add_filter('upgrader_post_install', array($this, 'post_install'), 10, 3);
         add_action('admin_notices', array($this, 'show_update_check_notice'));
         add_filter('auto_update_plugin', array($this, 'maybe_auto_update'), 10, 2);
+        add_action('wp_ajax_limy_check_github_updates', array($this, 'ajax_check_updates'));
+    }
+
+    public function ajax_check_updates() {
+        check_ajax_referer('limy_check_updates_nonce', 'nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'limy-ai-logger')));
+        }
+
+        delete_site_transient('update_plugins');
+        delete_transient('limy_github_release_' . md5($this->github_repo));
+
+        $release = $this->get_github_release_info();
+        if (!$release) {
+            wp_send_json_error(array('message' => __('Could not fetch GitHub releases.', 'limy-ai-logger')));
+        }
+
+        $current_version = $this->get_plugin_version();
+        $tag_name        = $release['tag_name'];
+        $remote_version  = $this->parse_version($tag_name);
+        $has_update      = version_compare($remote_version, $current_version, '>');
+
+        wp_send_json_success(array(
+            'has_update'      => $has_update,
+            'current_version' => $current_version,
+            'remote_version'  => $remote_version,
+            'tag_name'        => $tag_name,
+        ));
     }
 
     public function maybe_auto_update($update, $item) {
@@ -849,9 +929,6 @@ final class Limy_AI_Logger_GitHub_Updater {
 
         $release = $this->get_github_release_info();
         if (!$release) {
-            echo '<div class="notice notice-error is-dismissible"><p>';
-            printf(__('Limy AI Logger: Could not fetch GitHub releases for %s. Ensure a release is published on GitHub.', 'limy-ai-logger'), esc_html($this->github_repo));
-            echo '</p></div>';
             return;
         }
 
@@ -862,8 +939,7 @@ final class Limy_AI_Logger_GitHub_Updater {
         if (version_compare($remote_version, $current_version, '>')) {
             echo '<div class="notice notice-success is-dismissible"><p>';
             printf(
-                __('Limy AI Logger: <strong>Update Available!</strong> Latest release on GitHub is tag <code>%s</code> (Version <code>%s</code>). Installed version is <code>%s</code>. Go to <a href="%s">Dashboard > Updates</a> to install.', 'limy-ai-logger'),
-                esc_html($tag_name),
+                __('🎉 <strong>Limy AI Logger: Update Available!</strong> Version <code>%s</code> is available on GitHub. Installed version is <code>%s</code>. <a href="%s" class="button button-primary" style="margin-left:8px;">Update Now in WP Admin</a>', 'limy-ai-logger'),
                 esc_html($remote_version),
                 esc_html($current_version),
                 esc_url(admin_url('update-core.php'))
@@ -872,9 +948,7 @@ final class Limy_AI_Logger_GitHub_Updater {
         } else {
             echo '<div class="notice notice-info is-dismissible"><p>';
             printf(
-                __('Limy AI Logger: Checked GitHub — Latest release tag is <code>%s</code> (parsed as version <code>%s</code>). Installed version is <code>%s</code>. You are up to date (or no newer tag was found).', 'limy-ai-logger'),
-                esc_html($tag_name),
-                esc_html($remote_version),
+                __('✅ <strong>Limy AI Logger:</strong> You are on the latest version (<code>%s</code>).', 'limy-ai-logger'),
                 esc_html($current_version)
             );
             echo '</p></div>';
