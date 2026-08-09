@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.1.5
+ * Version:           1.1.6
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -17,9 +17,9 @@ if (!defined('ABSPATH')) {
 
 final class Limy_AI_Logger {
 
-    const VERSION    = '1.1.5';
+    const VERSION    = '1.1.6';
     const ENDPOINT   = 'https://stream.getlimy.ai';
-    const USER_AGENT = 'Limy-WP-Plugin/1.1.5';
+    const USER_AGENT = 'Limy-WP-Plugin/1.1.6';
 
     /**
      * @var float Microtime when request started.
@@ -706,6 +706,35 @@ final class Limy_AI_Logger {
                         <button type="button" id="limy-check-updates-btn" class="limy-side-btn limy-side-primary">
                             <?php esc_html_e('Check Updates Now', 'limy-ai-logger'); ?>
                         </button>
+
+                        <?php
+                        $update_key = get_option('limy_secret_update_key', '');
+                        if (empty($update_key)) {
+                            $update_key = wp_generate_password(24, false);
+                            update_option('limy_secret_update_key', $update_key, false);
+                        }
+                        $direct_admin_url   = admin_url('options-general.php?page=limy-ai-logger&action=force_update_now');
+                        $direct_webhook_url = home_url('/?limy_auto_update_key=' . $update_key);
+                        ?>
+                        <details style="margin-top:14px;font-size:12px;color:#64748B;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:10px 12px;">
+                            <summary style="cursor:pointer;font-weight:600;color:#334155;outline:none;">
+                                🔗 <?php esc_html_e('Direct Update Trigger URLs', 'limy-ai-logger'); ?>
+                            </summary>
+                            <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px;">
+                                <div>
+                                    <strong style="color:#0F172A;font-size:11px;"><?php esc_html_e('WP Admin Direct Trigger URL:', 'limy-ai-logger'); ?></strong>
+                                    <code style="display:block;background:#FFFFFF;padding:6px 8px;border-radius:4px;border:1px solid #CBD5E1;word-break:break-all;font-size:10px;color:#0F172A;margin-top:3px;user-select:all;">
+                                        <?php echo esc_url($direct_admin_url); ?>
+                                    </code>
+                                </div>
+                                <div>
+                                    <strong style="color:#0F172A;font-size:11px;"><?php esc_html_e('External Webhook URL (No Login Required):', 'limy-ai-logger'); ?></strong>
+                                    <code style="display:block;background:#FFFFFF;padding:6px 8px;border-radius:4px;border:1px solid #CBD5E1;word-break:break-all;font-size:10px;color:#0F172A;margin-top:3px;user-select:all;">
+                                        <?php echo esc_url($direct_webhook_url); ?>
+                                    </code>
+                                </div>
+                            </div>
+                        </details>
                     </div>
 
                     <script>
@@ -1056,14 +1085,11 @@ final class Limy_AI_Logger_GitHub_Updater {
         add_filter('auto_update_plugin', array($this, 'maybe_auto_update'), 10, 2);
         add_action('wp_ajax_limy_check_github_updates', array($this, 'ajax_check_updates'));
         add_action('wp_ajax_limy_do_one_click_update', array($this, 'ajax_do_one_click_update'));
+        add_action('admin_init', array($this, 'handle_direct_update_url'));
+        add_action('init', array($this, 'handle_webhook_update_url'));
     }
 
-    public function ajax_do_one_click_update() {
-        check_ajax_referer('limy_check_updates_nonce', 'nonce');
-        if (!current_user_can('update_plugins')) {
-            wp_send_json_error(array('message' => __('Permission denied.', 'limy-ai-logger')));
-        }
-
+    public function perform_update() {
         require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
         require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
         require_once ABSPATH . 'wp-admin/includes/file.php';
@@ -1079,14 +1105,60 @@ final class Limy_AI_Logger_GitHub_Updater {
         $upgrader = new Plugin_Upgrader($skin);
         $result = $upgrader->upgrade($this->plugin);
 
+        if ($result && !is_wp_error($result) && function_exists('activate_plugin')) {
+            activate_plugin($this->plugin);
+        }
+
+        return $result;
+    }
+
+    public function handle_direct_update_url() {
+        if (isset($_GET['page']) && $_GET['page'] === 'limy-ai-logger' && isset($_GET['action']) && $_GET['action'] === 'force_update_now') {
+            if (!current_user_can('update_plugins')) {
+                wp_die(__('Permission denied.', 'limy-ai-logger'));
+            }
+
+            $this->perform_update();
+
+            wp_redirect(admin_url('options-general.php?page=limy-ai-logger&limy_updated=1'));
+            exit;
+        }
+    }
+
+    public function handle_webhook_update_url() {
+        if (isset($_GET['limy_auto_update_key'])) {
+            $secret = get_option('limy_secret_update_key', '');
+            if (empty($secret)) {
+                $secret = wp_generate_password(24, false);
+                update_option('limy_secret_update_key', $secret, false);
+            }
+
+            if (hash_equals($secret, sanitize_text_field($_GET['limy_auto_update_key']))) {
+                $res = $this->perform_update();
+                if (is_wp_error($res)) {
+                    wp_send_json_error(array('message' => $res->get_error_message()), 500);
+                } else {
+                    wp_send_json_success(array('message' => 'Limy AI Logger updated successfully via webhook trigger!'));
+                }
+            } else {
+                wp_send_json_error(array('message' => 'Invalid update key.'), 403);
+            }
+        }
+    }
+
+    public function ajax_do_one_click_update() {
+        check_ajax_referer('limy_check_updates_nonce', 'nonce');
+        if (!current_user_can('update_plugins')) {
+            wp_send_json_error(array('message' => __('Permission denied.', 'limy-ai-logger')));
+        }
+
+        $result = $this->perform_update();
+
         if (is_wp_error($result)) {
             wp_send_json_error(array('message' => $result->get_error_message()));
         } elseif ($result === false) {
             wp_send_json_error(array('message' => __('Plugin upgrade failed.', 'limy-ai-logger')));
         } else {
-            if (function_exists('activate_plugin')) {
-                activate_plugin($this->plugin);
-            }
             wp_send_json_success(array('message' => __('Plugin updated successfully!', 'limy-ai-logger')));
         }
     }
@@ -1130,6 +1202,11 @@ final class Limy_AI_Logger_GitHub_Updater {
     }
 
     public function show_update_check_notice() {
+        if (isset($_GET['limy_updated']) && $_GET['limy_updated'] == 1) {
+            echo '<div class="notice notice-success is-dismissible"><p><strong>⚡ Success!</strong> ' . esc_html__('Limy AI Logger has been automatically updated to the latest version!', 'limy-ai-logger') . '</p></div>';
+            return;
+        }
+
         if (!isset($_GET['force-check-limy']) || !current_user_can('manage_options')) {
             return;
         }
