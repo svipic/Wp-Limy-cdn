@@ -3,7 +3,7 @@
  * Plugin Name:       Limy AI Logger
  * Plugin URI:        https://limy.ai
  * Description:       Integrates Limy.ai custom log shipping to track AI visibility and agent traffic on your WordPress site.
- * Version:           1.0.5
+ * Version:           1.0.6
  * Author:            Soso Janashvili (iDox Digital Marketing, Saban Marketing, One Marketing)
  * Author URI:        https://idox.co.il
  * Text Domain:       limy-ai-logger
@@ -173,27 +173,255 @@ final class Limy_AI_Logger {
         $exclude_admin = get_option('limy_exclude_admin', 1);
         $exclude_cron  = get_option('limy_exclude_cron', 1);
         $auto_update   = get_option('limy_auto_update', 1);
+        $is_active     = $enabled && !empty($api_key);
         ?>
-        <div class="wrap">
-            <h1 style="display:flex;align-items:center;gap:12px;">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="36" height="36" style="border-radius:8px;vertical-align:middle;">
-                    <defs>
-                        <linearGradient id="limy-grad-hdr" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#346DDB" />
-                            <stop offset="100%" stop-color="#00C950" />
-                        </linearGradient>
-                        <linearGradient id="bg-grad-hdr" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#0F172A" />
-                            <stop offset="100%" stop-color="#020617" />
-                        </linearGradient>
-                    </defs>
-                    <rect width="256" height="256" rx="56" fill="url(#bg-grad-hdr)" />
-                    <path d="M 72 64 L 72 176 L 184 176 C 193 176 193 160 184 160 L 96 160 L 96 64 C 96 55 72 55 72 64 Z" fill="url(#limy-grad-hdr)" />
-                    <circle cx="184" cy="80" r="14" fill="url(#limy-grad-hdr)" />
-                </svg>
-                <?php esc_html_e('Limy AI Logger Settings', 'limy-ai-logger'); ?>
-            </h1>
-            <p><?php esc_html_e('Configure log shipping to Limy.ai to track AI bot visits and visibility statistics.', 'limy-ai-logger'); ?></p>
+        <div class="wrap limy-admin-wrap">
+            <style>
+                .limy-admin-wrap {
+                    max-width: 1100px;
+                    margin: 20px 20px 40px 0;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+                }
+                .limy-header {
+                    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+                    border-radius: 16px;
+                    padding: 24px 32px;
+                    color: #FFFFFF;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.3);
+                    margin-bottom: 24px;
+                }
+                .limy-brand {
+                    display: flex;
+                    align-items: center;
+                    gap: 16px;
+                }
+                .limy-title-group h1 {
+                    color: #FFFFFF !important;
+                    font-size: 24px;
+                    font-weight: 700;
+                    margin: 0 0 4px 0 !important;
+                    padding: 0 !important;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+                .limy-subtitle {
+                    color: #94A3B8;
+                    font-size: 13px;
+                    margin: 0;
+                }
+                .limy-status-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 6px 14px;
+                    border-radius: 20px;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+                .limy-status-active {
+                    background: rgba(0, 201, 80, 0.15);
+                    color: #00C950;
+                    border: 1px solid rgba(0, 201, 80, 0.3);
+                }
+                .limy-status-inactive {
+                    background: rgba(245, 158, 11, 0.15);
+                    color: #F59E0B;
+                    border: 1px solid rgba(245, 158, 11, 0.3);
+                }
+                .limy-dot {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    background: currentColor;
+                    box-shadow: 0 0 8px currentColor;
+                }
+                .limy-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 340px;
+                    gap: 24px;
+                }
+                @media (max-width: 900px) {
+                    .limy-grid { grid-template-columns: 1fr; }
+                }
+                .limy-card {
+                    background: #FFFFFF;
+                    border-radius: 14px;
+                    padding: 24px 28px;
+                    border: 1px solid #E2E8F0;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+                    margin-bottom: 24px;
+                }
+                .limy-card h2 {
+                    font-size: 16px;
+                    font-weight: 700;
+                    color: #0F172A;
+                    margin: 0 0 16px 0 !important;
+                    padding-bottom: 12px;
+                    border-bottom: 1px solid #F1F5F9;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                .limy-field-group {
+                    margin-bottom: 20px;
+                }
+                .limy-field-group label {
+                    display: block;
+                    font-weight: 600;
+                    color: #334155;
+                    font-size: 13px;
+                    margin-bottom: 6px;
+                }
+                .limy-input-wrap {
+                    display: flex;
+                    gap: 8px;
+                }
+                .limy-input-wrap input[type="password"],
+                .limy-input-wrap input[type="text"] {
+                    flex: 1;
+                    padding: 8px 12px;
+                    border: 1px solid #CBD5E1;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    background: #F8FAFC;
+                    transition: all 0.2s;
+                }
+                .limy-input-wrap input:focus {
+                    border-color: #346DDB;
+                    background: #FFFFFF;
+                    box-shadow: 0 0 0 3px rgba(52, 109, 219, 0.15);
+                    outline: none;
+                }
+                .limy-btn-btn {
+                    padding: 8px 14px;
+                    border-radius: 8px;
+                    font-size: 13px;
+                    font-weight: 600;
+                    border: 1px solid #CBD5E1;
+                    background: #F1F5F9;
+                    color: #334155;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .limy-btn-btn:hover {
+                    background: #E2E8F0;
+                    color: #0F172A;
+                }
+                .limy-toggle-row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 12px 0;
+                    border-bottom: 1px solid #F8FAFC;
+                }
+                .limy-toggle-row:last-child { border-bottom: none; }
+                .limy-toggle-info { flex: 1; padding-right: 16px; }
+                .limy-toggle-title { font-weight: 600; color: #1E293B; font-size: 13px; }
+                .limy-toggle-desc { font-size: 12px; color: #64748B; margin-top: 2px; }
+                
+                /* Switch Toggle */
+                .limy-switch {
+                    position: relative;
+                    display: inline-block;
+                    width: 44px;
+                    height: 24px;
+                    flex-shrink: 0;
+                }
+                .limy-switch input { opacity: 0; width: 0; height: 0; }
+                .limy-slider {
+                    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+                    background-color: #CBD5E1; transition: .3s; border-radius: 24px;
+                }
+                .limy-slider:before {
+                    position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+                    background-color: white; transition: .3s; border-radius: 50%;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                }
+                input:checked + .limy-slider { background-color: #346DDB; }
+                input:checked + .limy-slider:before { transform: translateX(20px); }
+                
+                .limy-submit-btn {
+                    background: linear-gradient(135deg, #346DDB 0%, #1D4ED8 100%);
+                    color: #FFFFFF !important;
+                    border: none !important;
+                    padding: 10px 24px !important;
+                    font-size: 14px !important;
+                    font-weight: 600 !important;
+                    border-radius: 8px !important;
+                    cursor: pointer;
+                    box-shadow: 0 4px 12px rgba(52, 109, 219, 0.3);
+                    transition: all 0.2s;
+                }
+                .limy-submit-btn:hover {
+                    box-shadow: 0 6px 16px rgba(52, 109, 219, 0.4);
+                    transform: translateY(-1px);
+                }
+                .limy-side-btn {
+                    width: 100%;
+                    text-align: center;
+                    padding: 10px 16px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    font-size: 13px;
+                    text-decoration: none;
+                    display: inline-block;
+                    box-sizing: border-box;
+                    transition: all 0.2s;
+                }
+                .limy-side-primary {
+                    background: #0F172A; color: #FFFFFF !important; border: 1px solid #0F172A;
+                }
+                .limy-side-primary:hover { background: #1E293B; }
+                .limy-side-secondary {
+                    background: #F1F5F9; color: #334155 !important; border: 1px solid #CBD5E1;
+                }
+                .limy-side-secondary:hover { background: #E2E8F0; }
+                .limy-credits-list {
+                    list-style: none; padding: 0; margin: 0; font-size: 13px; color: #475569;
+                }
+                .limy-credits-list li { margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+                .limy-credits-list a { color: #346DDB; text-decoration: none; font-weight: 600; }
+                .limy-credits-list a:hover { text-decoration: underline; }
+            </style>
+
+            <div class="limy-header">
+                <div class="limy-brand">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="48" height="48" style="border-radius:12px;">
+                        <defs>
+                            <linearGradient id="limy-g-hdr" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#346DDB" />
+                                <stop offset="100%" stop-color="#00C950" />
+                            </linearGradient>
+                            <linearGradient id="bg-g-hdr" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#0F172A" />
+                                <stop offset="100%" stop-color="#020617" />
+                            </linearGradient>
+                        </defs>
+                        <rect width="256" height="256" rx="56" fill="url(#bg-g-hdr)" />
+                        <path d="M 72 64 L 72 176 L 184 176 C 193 176 193 160 184 160 L 96 160 L 96 64 C 96 55 72 55 72 64 Z" fill="url(#limy-g-hdr)" />
+                        <circle cx="184" cy="80" r="14" fill="url(#limy-g-hdr)" />
+                    </svg>
+                    <div class="limy-title-group">
+                        <h1>Limy AI Logger <span style="font-size:12px;font-weight:400;color:#64748B;background:#1E293B;padding:2px 8px;border-radius:12px;">v1.0.6</span></h1>
+                        <p class="limy-subtitle"><?php esc_html_e('Custom log shipping integration for Limy.ai AI visibility statistics', 'limy-ai-logger'); ?></p>
+                    </div>
+                </div>
+                <div>
+                    <?php if ($is_active): ?>
+                        <span class="limy-status-badge limy-status-active">
+                            <span class="limy-dot"></span> <?php esc_html_e('Shipping Active', 'limy-ai-logger'); ?>
+                        </span>
+                    <?php else: ?>
+                        <span class="limy-status-badge limy-status-inactive">
+                            <span class="limy-dot"></span> <?php esc_html_e('API Key Required', 'limy-ai-logger'); ?>
+                        </span>
+                    <?php endif; ?>
+                </div>
+            </div>
 
             <?php if ($test_result !== null): ?>
                 <?php if ($test_result['success']): ?>
@@ -207,100 +435,128 @@ final class Limy_AI_Logger {
                 <?php endif; ?>
             <?php endif; ?>
 
-            <form method="post" action="options.php">
-                <?php
-                settings_fields('limy_ai_logger_group');
-                do_settings_sections('limy_ai_logger_group');
-                ?>
+            <div class="limy-grid">
+                <!-- Main Form Column -->
+                <div>
+                    <form method="post" action="options.php">
+                        <?php
+                        settings_fields('limy_ai_logger_group');
+                        do_settings_sections('limy_ai_logger_group');
+                        ?>
+                        
+                        <div class="limy-card">
+                            <h2>🔑 <?php esc_html_e('API Configuration', 'limy-ai-logger'); ?></h2>
+                            <div class="limy-field-group">
+                                <label for="limy_api_key"><?php esc_html_e('Limy API Key', 'limy-ai-logger'); ?></label>
+                                <div class="limy-input-wrap">
+                                    <input type="password" id="limy_api_key" name="limy_api_key" value="<?php echo esc_attr($api_key); ?>" placeholder="lmy_xxxxxxxxxxxxxxxxxxxx" />
+                                    <button type="button" class="limy-btn-btn" onclick="var el=document.getElementById('limy_api_key'); el.type = el.type === 'password' ? 'text' : 'password';">
+                                        👁️ <?php esc_html_e('Show / Hide', 'limy-ai-logger'); ?>
+                                    </button>
+                                </div>
+                                <p class="description" style="margin-top:6px;font-size:12px;color:#64748B;">
+                                    <?php esc_html_e('Your secret Limy API Key starting with lmy_. Found in your Limy.ai dashboard settings.', 'limy-ai-logger'); ?>
+                                </p>
+                            </div>
+                        </div>
 
-                <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row">
-                            <label for="limy_enabled"><?php esc_html_e('Enable Log Shipping', 'limy-ai-logger'); ?></label>
-                        </th>
-                        <td>
-                            <input type="checkbox" id="limy_enabled" name="limy_enabled" value="1" <?php checked(1, $enabled); ?> />
-                            <span class="description"><?php esc_html_e('Enable or disable sending access logs to Limy.ai.', 'limy-ai-logger'); ?></span>
-                        </td>
-                    </tr>
+                        <div class="limy-card">
+                            <h2>⚙️ <?php esc_html_e('Logging & Filter Rules', 'limy-ai-logger'); ?></h2>
 
-                    <tr>
-                        <th scope="row">
-                            <label for="limy_api_key"><?php esc_html_e('Limy API Key', 'limy-ai-logger'); ?></label>
-                        </th>
-                        <td>
-                            <input type="password" id="limy_api_key" name="limy_api_key" value="<?php echo esc_attr($api_key); ?>" class="regular-text" placeholder="lmy_xxxxxxxxxxxx" />
-                            <button type="button" class="button button-secondary" onclick="var el=document.getElementById('limy_api_key'); el.type = el.type === 'password' ? 'text' : 'password';">
-                                <?php esc_html_e('Show / Hide', 'limy-ai-logger'); ?>
-                            </button>
-                            <p class="description">
-                                <?php esc_html_e('Your Limy API Key starting with lmy_. Found in your Limy.ai dashboard settings.', 'limy-ai-logger'); ?>
-                            </p>
-                        </td>
-                    </tr>
+                            <div class="limy-toggle-row">
+                                <div class="limy-toggle-info">
+                                    <div class="limy-toggle-title"><?php esc_html_e('Enable Log Shipping', 'limy-ai-logger'); ?></div>
+                                    <div class="limy-toggle-desc"><?php esc_html_e('Enable or disable sending HTTP access logs to Limy.ai stream endpoint.', 'limy-ai-logger'); ?></div>
+                                </div>
+                                <label class="limy-switch">
+                                    <input type="checkbox" name="limy_enabled" value="1" <?php checked(1, $enabled); ?> />
+                                    <span class="limy-slider"></span>
+                                </label>
+                            </div>
 
-                    <tr>
-                        <th scope="row">
-                            <label for="limy_exclude_admin"><?php esc_html_e('Exclude WP Admin', 'limy-ai-logger'); ?></label>
-                        </th>
-                        <td>
-                            <input type="checkbox" id="limy_exclude_admin" name="limy_exclude_admin" value="1" <?php checked(1, $exclude_admin); ?> />
-                            <span class="description"><?php esc_html_e('Do not ship logs for requests inside /wp-admin/ or logged-in administrators.', 'limy-ai-logger'); ?></span>
-                        </td>
-                    </tr>
+                            <div class="limy-toggle-row">
+                                <div class="limy-toggle-info">
+                                    <div class="limy-toggle-title"><?php esc_html_e('Exclude WP Admin Requests', 'limy-ai-logger'); ?></div>
+                                    <div class="limy-toggle-desc"><?php esc_html_e('Do not ship logs for requests inside /wp-admin/ or logged-in administrators.', 'limy-ai-logger'); ?></div>
+                                </div>
+                                <label class="limy-switch">
+                                    <input type="checkbox" name="limy_exclude_admin" value="1" <?php checked(1, $exclude_admin); ?> />
+                                    <span class="limy-slider"></span>
+                                </label>
+                            </div>
 
-                    <tr>
-                        <th scope="row">
-                            <label for="limy_exclude_cron"><?php esc_html_e('Exclude Cron & CLI', 'limy-ai-logger'); ?></label>
-                        </th>
-                        <td>
-                            <input type="checkbox" id="limy_exclude_cron" name="limy_exclude_cron" value="1" <?php checked(1, $exclude_cron); ?> />
-                            <span class="description"><?php esc_html_e('Do not ship logs for internal WP-Cron or WP-CLI background requests.', 'limy-ai-logger'); ?></span>
-                        </td>
-                    </tr>
+                            <div class="limy-toggle-row">
+                                <div class="limy-toggle-info">
+                                    <div class="limy-toggle-title"><?php esc_html_e('Exclude WP-Cron & CLI', 'limy-ai-logger'); ?></div>
+                                    <div class="limy-toggle-desc"><?php esc_html_e('Do not ship logs for background WP-Cron jobs or WP-CLI executions.', 'limy-ai-logger'); ?></div>
+                                </div>
+                                <label class="limy-switch">
+                                    <input type="checkbox" name="limy_exclude_cron" value="1" <?php checked(1, $exclude_cron); ?> />
+                                    <span class="limy-slider"></span>
+                                </label>
+                            </div>
 
-                    <tr>
-                        <th scope="row">
-                            <label for="limy_auto_update"><?php esc_html_e('Background Auto-Updates', 'limy-ai-logger'); ?></label>
-                        </th>
-                        <td>
-                            <input type="checkbox" id="limy_auto_update" name="limy_auto_update" value="1" <?php checked(1, $auto_update); ?> />
-                            <span class="description"><?php esc_html_e('Automatically install new plugin versions released on GitHub in the background.', 'limy-ai-logger'); ?></span>
-                        </td>
-                    </tr>
-                </table>
+                            <div class="limy-toggle-row">
+                                <div class="limy-toggle-info">
+                                    <div class="limy-toggle-title"><?php esc_html_e('Background Auto-Updates', 'limy-ai-logger'); ?></div>
+                                    <div class="limy-toggle-desc"><?php esc_html_e('Automatically install new releases published on GitHub in the background.', 'limy-ai-logger'); ?></div>
+                                </div>
+                                <label class="limy-switch">
+                                    <input type="checkbox" name="limy_auto_update" value="1" <?php checked(1, $auto_update); ?> />
+                                    <span class="limy-slider"></span>
+                                </label>
+                            </div>
+                        </div>
 
-                <?php submit_button(); ?>
-            </form>
+                        <div style="margin-top:20px;">
+                            <input type="submit" class="limy-submit-btn" value="<?php esc_attr_e('Save Changes', 'limy-ai-logger'); ?>" />
+                        </div>
+                    </form>
+                </div>
 
-            <hr />
+                <!-- Sidebar Column -->
+                <div>
+                    <div class="limy-card">
+                        <h2>🧪 <?php esc_html_e('Test Connection', 'limy-ai-logger'); ?></h2>
+                        <p style="font-size:13px;color:#64748B;margin-top:0;margin-bottom:16px;">
+                            <?php esc_html_e('Send a live test ping to verify your API Key with Limy.ai.', 'limy-ai-logger'); ?>
+                        </p>
+                        <form method="post" action="">
+                            <?php wp_nonce_field('limy_test_connection_nonce'); ?>
+                            <input type="submit" name="limy_test_connection" class="limy-side-btn limy-side-secondary" value="<?php esc_attr_e('Send Test Ping', 'limy-ai-logger'); ?>" <?php disabled(empty($api_key)); ?> />
+                        </form>
+                    </div>
 
-            <h2><?php esc_html_e('Plugin Updates', 'limy-ai-logger'); ?></h2>
-            <p><?php esc_html_e('Check GitHub Releases for the latest plugin updates.', 'limy-ai-logger'); ?></p>
-            <a href="<?php echo esc_url(admin_url('options-general.php?page=limy-ai-logger&force-check-limy=1')); ?>" class="button button-secondary">
-                <?php esc_html_e('Check GitHub Updates Now', 'limy-ai-logger'); ?>
-            </a>
+                    <div class="limy-card">
+                        <h2>🔄 <?php esc_html_e('GitHub Updates', 'limy-ai-logger'); ?></h2>
+                        <p style="font-size:13px;color:#64748B;margin-top:0;margin-bottom:16px;">
+                            <?php esc_html_e('Check GitHub Releases for latest plugin updates.', 'limy-ai-logger'); ?>
+                        </p>
+                        <a href="<?php echo esc_url(admin_url('options-general.php?page=limy-ai-logger&force-check-limy=1')); ?>" class="limy-side-btn limy-side-primary">
+                            <?php esc_html_e('Check Updates Now', 'limy-ai-logger'); ?>
+                        </a>
+                    </div>
 
-            <hr />
-
-            <h2><?php esc_html_e('Test Integration', 'limy-ai-logger'); ?></h2>
-            <p><?php esc_html_e('Send a single test request to verify your API Key with Limy.ai.', 'limy-ai-logger'); ?></p>
-            <form method="post" action="">
-                <?php wp_nonce_field('limy_test_connection_nonce'); ?>
-                <input type="submit" name="limy_test_connection" class="button button-secondary" value="<?php esc_attr_e('Send Test Ping', 'limy-ai-logger'); ?>" <?php disabled(empty($api_key)); ?> />
-            </form>
-
-            <hr />
-
-            <h2><?php esc_html_e('Author & Credits', 'limy-ai-logger'); ?></h2>
-            <p>
-                <strong><?php esc_html_e('Developer:', 'limy-ai-logger'); ?></strong> Soso Janashvili 
-                (<a href="https://www.instagram.com/soso_janashvili/" target="_blank" rel="noopener">Instagram: @soso_janashvili</a>)<br />
-                <strong><?php esc_html_e('Brought to you by:', 'limy-ai-logger'); ?></strong> 
-                <a href="https://idox.co.il" target="_blank" rel="noopener">iDox Digital Marketing</a> | 
-                <a href="https://saban.marketing/" target="_blank" rel="noopener">Saban Marketing</a> | 
-                <a href="https://one1.co.il" target="_blank" rel="noopener">One Marketing</a>
-            </p>
+                    <div class="limy-card">
+                        <h2>👨‍💻 <?php esc_html_e('Developer & Credits', 'limy-ai-logger'); ?></h2>
+                        <ul class="limy-credits-list">
+                            <li>
+                                👤 <strong>Soso Janashvili</strong> 
+                                (<a href="https://www.instagram.com/soso_janashvili/" target="_blank" rel="noopener">Instagram</a>)
+                            </li>
+                            <li>
+                                🚀 <a href="https://idox.co.il" target="_blank" rel="noopener">iDox Digital Marketing</a>
+                            </li>
+                            <li>
+                                💼 <a href="https://saban.marketing/" target="_blank" rel="noopener">Saban Marketing</a>
+                            </li>
+                            <li>
+                                ⚡ <a href="https://one1.co.il" target="_blank" rel="noopener">One Marketing</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
         <?php
     }
