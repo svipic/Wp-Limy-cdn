@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <defs>
+    <linearGradient id="limy-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#346DDB" />
+      <stop offset="100%" stop-color="#00C950" />
+    </linearGradient>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg-grad)" />
+  <rect width="248" height="248" x="4" y="4" rx="52" fill="none" stroke="url(#limy-grad)" stroke-width="4" stroke-opacity="0.4" />
+  <!-- Limy stylized L emblem -->
+  <path d="M 72 64 L 72 176 L 184 176 C 193 176 193 160 184 160 L 96 160 L 96 64 C 96 55 72 55 72 64 Z" fill="url(#limy-grad)" />
+  <!-- AI sparkle nodes -->
+  <circle cx="184" cy="80" r="14" fill="url(#limy-grad)" />
+  <circle cx="140" cy="116" r="10" fill="#346DDB" opacity="0.8" />
+  <path d="M 184 64 L 184 96 M 168 80 L 200 80" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.9" />
+</svg>

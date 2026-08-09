@@ -175,7 +175,24 @@ final class Limy_AI_Logger {
         $auto_update   = get_option('limy_auto_update', 1);
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Limy AI Logger Settings', 'limy-ai-logger'); ?></h1>
+            <h1 style="display:flex;align-items:center;gap:12px;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="36" height="36" style="border-radius:8px;vertical-align:middle;">
+                    <defs>
+                        <linearGradient id="limy-grad-hdr" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#346DDB" />
+                            <stop offset="100%" stop-color="#00C950" />
+                        </linearGradient>
+                        <linearGradient id="bg-grad-hdr" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#0F172A" />
+                            <stop offset="100%" stop-color="#020617" />
+                        </linearGradient>
+                    </defs>
+                    <rect width="256" height="256" rx="56" fill="url(#bg-grad-hdr)" />
+                    <path d="M 72 64 L 72 176 L 184 176 C 193 176 193 160 184 160 L 96 160 L 96 64 C 96 55 72 55 72 64 Z" fill="url(#limy-grad-hdr)" />
+                    <circle cx="184" cy="80" r="14" fill="url(#limy-grad-hdr)" />
+                </svg>
+                <?php esc_html_e('Limy AI Logger Settings', 'limy-ai-logger'); ?>
+            </h1>
             <p><?php esc_html_e('Configure log shipping to Limy.ai to track AI bot visits and visibility statistics.', 'limy-ai-logger'); ?></p>
 
             <?php if ($test_result !== null): ?>
